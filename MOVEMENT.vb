@@ -4,12 +4,16 @@ Option Explicit
 
 '*===============================================================================*'
 '*****                      MAINTENANCE LOG                                  *****'
+'*                          VERSION 3.1.1                                        *'
 '*-------------------------------------------------------------------------------*'
 '**   DATE    *  DESCRIPTION                                                    **'
 '*-------------------------------------------------------------------------------*'
 '** 17/01/96  *  Insert Maintenance Log                                         **'
 '** 29/01/96  *  Allow for Scouting Finds                                       **'
 '** 23/02/96  *  Amended Naval movement                                         **'
+'** 05/03/25  *  Movement points calculation for mounted units fixed (AlexD)    **'
+'** 05/03/25  *  Prevents moving wagons without pulling animals. (AlexD)        **'
+'** 16/03/25  *  Mounted capacity check is currently disabled (AlexD)           **'
 '*===============================================================================*'
  
 
@@ -1858,18 +1862,20 @@ If GROUP_MOVE = "F" Then
          TRIBESGOODS.Seek "=", MOVE_CLAN, MOVE_TRIBE, "FINISHED", "WAGON"
          If Not TRIBESGOODS.NoMatch Then
             If TRIBESGOODS![ITEM_NUMBER] > 0 Then
-               If PASS_AVAILABLE = "Y" Then
-                  GROUP_MOVE = "Y"
-               ElseIf TRIBES_CAPACITY > TRIBES_WEIGHT Then
-                  GROUP_MOVE = "Y"
-               ElseIf Walking_Capacity > TRIBES_WEIGHT Then
+               NUMBER_OF_WAGONS = TRIBESGOODS![ITEM_NUMBER]
+               TRIBESGOODS.MoveFirst
+               TRIBESGOODS.Seek "=", MOVE_CLAN, MOVE_TRIBE, "ANIMAL", "ELEPHANT"
+               If TRIBESGOODS.NoMatch Then
+                  NO_MOVEMENT_REASON = "Cannot Move Wagons into Mountains  to " & Direction & " of HEX"
+                  GROUP_MOVE = "N"
+               ElseIf TRIBESGOODS![ITEM_NUMBER] >= NUMBER_OF_WAGONS Then
                   GROUP_MOVE = "Y"
                Else
-                  NO_MOVEMENT_REASON = "No Pass into Mountain to " & Direction & " of HEX"
+                  NO_MOVEMENT_REASON = "Cannot Move Wagons into Mountains  to " & Direction & " of HEX"
                   GROUP_MOVE = "N"
                End If
             Else
-               GROUP_MOVE = "Y"
+               NUMBER_OF_WAGONS = 0
             End If
         Else
            GROUP_MOVE = "Y"
@@ -1885,12 +1891,12 @@ If GROUP_MOVE = "F" Then
                TRIBESGOODS.MoveFirst
                TRIBESGOODS.Seek "=", MOVE_CLAN, MOVE_TRIBE, "ANIMAL", "ELEPHANT"
                If TRIBESGOODS.NoMatch Then
-                  NO_MOVEMENT_REASON = "Cannot Move Wagons into Swamp/Jungle Hill to " & Direction & " of HEX"
+                  NO_MOVEMENT_REASON = "Cannot Move Wagons into Swamp  to " & Direction & " of HEX"
                   GROUP_MOVE = "N"
                ElseIf TRIBESGOODS![ITEM_NUMBER] >= NUMBER_OF_WAGONS Then
                   GROUP_MOVE = "Y"
                Else
-                  NO_MOVEMENT_REASON = "Cannot Move Wagons into Swamp/Jungle Hill to " & Direction & " of HEX"
+                  NO_MOVEMENT_REASON = "Cannot Move Wagons into Swamp  to " & Direction & " of HEX"
                   GROUP_MOVE = "N"
                End If
             Else
@@ -1900,7 +1906,32 @@ If GROUP_MOVE = "F" Then
             GROUP_MOVE = "Y"
          End If
       End If
-   ElseIf Left(NEW_TERRAIN, 6) = "JUNGLE" Then
+   ElseIf Left(NEW_TERRAIN, 11) = "SNOWY HILLS" Then
+      If Not SCOUTS = "Y" Then
+         TRIBESGOODS.MoveFirst
+         TRIBESGOODS.Seek "=", MOVE_CLAN, MOVE_TRIBE, "FINISHED", "WAGON"
+         If Not TRIBESGOODS.NoMatch Then
+            If TRIBESGOODS![ITEM_NUMBER] > 0 Then
+               NUMBER_OF_WAGONS = TRIBESGOODS![ITEM_NUMBER]
+               TRIBESGOODS.MoveFirst
+               TRIBESGOODS.Seek "=", MOVE_CLAN, MOVE_TRIBE, "ANIMAL", "ELEPHANT"
+               If TRIBESGOODS.NoMatch Then
+                  NO_MOVEMENT_REASON = "Cannot Move Wagons into Snowy hills to " & Direction & " of HEX"
+                  GROUP_MOVE = "N"
+               ElseIf TRIBESGOODS![ITEM_NUMBER] >= NUMBER_OF_WAGONS Then
+                  GROUP_MOVE = "Y"
+               Else
+                  NO_MOVEMENT_REASON = "Cannot Move Wagons into Snowy hills to " & Direction & " of HEX"
+                  GROUP_MOVE = "N"
+               End If
+            Else
+               NUMBER_OF_WAGONS = 0
+            End If
+         Else
+            GROUP_MOVE = "Y"
+         End If
+      End If
+    ElseIf Left(NEW_TERRAIN, 6) = "JUNGLE" Then
       If NEW_TERRAIN = "JUNGLE" Then
           'DO NOTHING
       ElseIf Not SCOUTS = "Y" Then
@@ -1912,12 +1943,12 @@ If GROUP_MOVE = "F" Then
                TRIBESGOODS.MoveFirst
                TRIBESGOODS.Seek "=", MOVE_CLAN, MOVE_TRIBE, "ANIMAL", "ELEPHANT"
                If TRIBESGOODS.NoMatch Then
-                  NO_MOVEMENT_REASON = "Cannot Move Wagons into Swamp/Jungle Hill to " & Direction & " of HEX"
+                  NO_MOVEMENT_REASON = "Cannot Move Wagons into Jungle Hill to " & Direction & " of HEX"
                   GROUP_MOVE = "N"
                ElseIf TRIBESGOODS![ITEM_NUMBER] >= NUMBER_OF_WAGONS Then
                   GROUP_MOVE = "Y"
                Else
-                  NO_MOVEMENT_REASON = "Cannot Move Wagons into Swamp/Jungle Hill to " & Direction & " of HEX"
+                  NO_MOVEMENT_REASON = "Cannot Move Wagons into Jungle Hill to " & Direction & " of HEX"
                   GROUP_MOVE = "N"
                End If
             Else
@@ -2115,6 +2146,7 @@ Dim VESSEL_MOVEMENT_ROW As Long
 Dim VESSEL_MOVEMENT_SAIL As Long
 Dim NUMBER_OF_WAGONS As Long
 Dim Number_Of_Elephants As Long
+Dim Number_Of_Cattle As Long
 Dim NUMBER_OF_CHARIOTS As Long
 Dim NUMBER_OF_LIGHTHORSE As Long
 Dim NUMBER_OF_HEAVYHORSE As Long
@@ -2232,6 +2264,13 @@ Else
       Number_Of_Horses = TRIBESGOODS![ITEM_NUMBER]
    End If
    
+   Number_Of_Cattle = 0
+   TRIBESGOODS.MoveFirst
+   TRIBESGOODS.Seek "=", MOVE_CLAN, GOODS_TRIBE, "ANIMAL", "CATTLE"
+   If Not TRIBESGOODS.NoMatch Then
+      Number_Of_Cattle = TRIBESGOODS![ITEM_NUMBER]
+   End If
+   
    TRIBESGOODS.MoveFirst
    TRIBESGOODS.Seek "=", MOVE_CLAN, GOODS_TRIBE, "ANIMAL", "HORSE/LIGHT"
    If Not TRIBESGOODS.NoMatch Then
@@ -2277,15 +2316,25 @@ Else
       ELEPHANTS_USED = 0
    End If
    
+' Check if there are enough animals to pull wagons (AlexD 12-23-2024)
+   If (SCOUTS = "N") And (NUMBER_OF_WAGONS * 2 > (Number_Of_Horses + Number_Of_Cattle) + Number_Of_Elephants * 2) Then
+                MOVEMENT_POINTS = 0
+                NO_MOVEMENT_REASON = "Not enough animals to pull wagons"
+                Exit Sub
+   End If
+ 
    If SCOUTS = "Y" Then
       Number_Of_People_Mounted = CAMELS_USED + HORSES_USED + (ELEPHANTS_USED * 3)
    Else
       Number_Of_People_Mounted = Number_Of_Camels + Number_Of_Horses + (Number_Of_Elephants * 3)
    End If
-   
+
+
+
+ 
    If SCOUTS = "Y" Then
       If SCOUTS_USED <= Number_Of_People_Mounted Then
-         If NUMBER_OF_LIGHTHORSE >= HORSES_USED Then
+         If (NUMBER_OF_LIGHTHORSE >= HORSES_USED) And (NUMBER_OF_LIGHTHORSE > 0) Then
             MOVEMENT_POINTS = 20
          Else
             MOVEMENT_POINTS = 15
@@ -2295,8 +2344,9 @@ Else
       End If
    ElseIf NUMBER_OF_CHARIOTS = 0 Then
       If NUMBER_OF_WAGONS = 0 Then
+'         If Number_Of_People_Mounted >= Total_People And TRIBES_CAPACITY >= TRIBES_WEIGHT Then
          If Number_Of_People_Mounted >= Total_People Then
-            If NUMBER_OF_LIGHTHORSE >= HORSES_USED Then
+            If (NUMBER_OF_LIGHTHORSE >= HORSES_USED) And (NUMBER_OF_LIGHTHORSE > 0) Then
                MOVEMENT_POINTS = 35
             Else
                MOVEMENT_POINTS = 27
@@ -2305,6 +2355,7 @@ Else
             MOVEMENT_POINTS = 18
          End If
       ElseIf Number_Of_Elephants >= NUMBER_OF_WAGONS Then
+'         If Number_Of_People_Mounted >= Total_People And TRIBES_CAPACITY >= TRIBES_WEIGHT Then
          If Number_Of_People_Mounted >= Total_People Then
             MOVEMENT_POINTS = 27
          Else
@@ -2315,6 +2366,7 @@ Else
       End If
    ElseIf NUMBER_OF_CHARIOTS > 0 Then
       Number_Of_People_Mounted = Number_Of_People_Mounted + (NUMBER_OF_CHARIOTS * 3)
+'      If Number_Of_People_Mounted >= Total_People And TRIBES_CAPACITY >= TRIBES_WEIGHT Then
       If Number_Of_People_Mounted >= Total_People Then
          MOVEMENT_POINTS = 24
       Else
@@ -5297,7 +5349,7 @@ Do Until SCOUT_MOVEMENT_TABLE.EOF
    End If
 
    TCLANNUMBER = MOVE_CLAN
-   CURRENT_MAP = TRIBESINFO![Current Hex]
+   CURRENT_MAP = TRIBESINFO![CURRENT HEX]
 
    If Not IsNull(TRIBESINFO![GOODS TRIBE]) Then
       GOODS_TRIBE = TRIBESINFO![GOODS TRIBE]
@@ -5545,7 +5597,7 @@ Do
   SCOUT_NUMBER = SCOUT_NUMBER + 1
   WHICH_SCOUT = "SCOUT" & Str(SCOUT_NUMBER)
   MINERALSINHEX = ""
-  CURRENT_MAP = TRIBESINFO![Current Hex]
+  CURRENT_MAP = TRIBESINFO![CURRENT HEX]
   SCOUTS_USED = Number_Of_Scouts(SCOUT_NUMBER)
   HORSES_USED = Number_Of_Horses(SCOUT_NUMBER)
   ELEPHANTS_USED = Number_Of_Elephants(SCOUT_NUMBER)
@@ -5960,7 +6012,7 @@ TM_POS = "START"
 codetrack = 0
 crlf = Chr(13) & Chr(10)
 
-NO_MOVEMENT_REASON = ""
+
 
 USE_SCREEN = SCREEN
 
@@ -6006,7 +6058,8 @@ Multiple_Follows = False
 Movement_Table_Start:
 Do Until TRIBE_MOVEMENT_TABLE.EOF
    MOVEMENT_LINE = ""
-
+   NO_MOVEMENT_REASON = ""
+   
 If USE_SCREEN = "Y" Then
    MOVE_CLAN = "0" & Mid(Forms![TRIBE MOVEMENT]![TRIBE NAME], 2, 3)
    MOVE_TRIBE = Forms![TRIBE MOVEMENT]![TRIBE NAME]
@@ -6129,7 +6182,7 @@ End If
 
 TRIBESINFO.Edit
 
-TRIBESINFO![Previous_Hex] = TRIBESINFO![Current Hex]
+TRIBESINFO![Previous_Hex] = TRIBESINFO![CURRENT HEX]
 TRIBESINFO.UPDATE
 TRIBESINFO.Edit
 
@@ -6164,7 +6217,7 @@ Call Obtain_Skill_Levels
 Set SHIPSTABLE = TVDB.OpenRecordset("VALID_SHIPS")
 SHIPSTABLE.index = "PRIMARYKEY"
 
-CURRENT_MAP = TRIBESINFO![Current Hex]
+CURRENT_MAP = TRIBESINFO![CURRENT HEX]
 
 Set Globaltable = TVDBGM.OpenRecordset("GLOBAL")
 Globaltable.index = "PRIMARYKEY"
@@ -6455,12 +6508,12 @@ Else
          If TRIBESINFO.NoMatch Then
             GoTo End_Loop
          End If
-         CURRENT_MAP = TRIBESINFO![Current Hex]
+         CURRENT_MAP = TRIBESINFO![CURRENT HEX]
          hexmaptable.MoveFirst
          hexmaptable.Seek "=", CURRENT_MAP
          TRIBESINFO.Seek "=", MOVE_CLAN, MOVE_TRIBE
          TRIBESINFO.Edit
-         TRIBESINFO![Current Hex] = CURRENT_MAP
+         TRIBESINFO![CURRENT HEX] = CURRENT_MAP
          TRIBESINFO![CURRENT TERRAIN] = hexmaptable![TERRAIN]
          TRIBESINFO.UPDATE
          Call Tribe_Checking("Update_Hex", MOVE_CLAN, MOVE_TRIBE, CURRENT_MAP)
@@ -6477,7 +6530,7 @@ Else
             GoTo End_Loop
          End If
          TRIBESINFO.Edit
-         TRIBESINFO![Current Hex] = CURRENT_MAP
+         TRIBESINFO![CURRENT HEX] = CURRENT_MAP
          TRIBESINFO![CURRENT TERRAIN] = hexmaptable![TERRAIN]
          TRIBESINFO.UPDATE
          Call Tribe_Checking("Update_Hex", MOVE_CLAN, MOVE_TRIBE, CURRENT_MAP)
@@ -6515,6 +6568,16 @@ Else
              If TRIBES_WEIGHT > Walking_Capacity Then
                   NO_MOVEMENT_REASON = "Insufficient capacity to carry "
                   GROUP_MOVE = "N"
+             ElseIf NO_MOVEMENT_REASON = "Not enough animals to pull wagons" Then
+                    GROUP_MOVE = "N"
+                    MOVEMENT_LINE = "Tribe Movement: Not enough animals to pull wagons. Movement is not possible."
+                    Movement_Trace.Edit
+                    Movement_Trace![NO_MOVEMENT_REASON] = NO_MOVEMENT_REASON
+                    Movement_Trace.UPDATE
+                    Msg = "The Clan was " & MOVE_CLAN & " The Tribe was " & MOVE_TRIBE
+                    Msg = Msg & Chr(13) & Chr(10) & " Not enough animals to pull wagons."
+                    MsgBox (Msg)
+                    Exit Do
              ElseIf TRIBES_WEIGHT > TRIBES_CAPACITY Then
                     If TRIBES_WEIGHT < Walking_Capacity Then
                         GROUP_MOVE = "Y"
@@ -6643,7 +6706,7 @@ Else
    TM_POS = "End of Movement Section"
 
    TRIBESINFO.Edit
-   TRIBESINFO![Current Hex] = CURRENT_MAP
+   TRIBESINFO![CURRENT HEX] = CURRENT_MAP
    TRIBESINFO.UPDATE
    
    Call Tribe_Checking("Update_Hex", MOVE_CLAN, MOVE_TRIBE, CURRENT_MAP)
@@ -6679,7 +6742,7 @@ End If
   TERRAINTABLE.Seek "=", hexmaptable![TERRAIN]
 
   TRIBESINFO.Edit
-  TRIBESINFO![Current Hex] = CURRENT_MAP
+  TRIBESINFO![CURRENT HEX] = CURRENT_MAP
   TRIBESINFO![CURRENT TERRAIN] = hexmaptable![TERRAIN]
   TRIBESINFO.UPDATE
   Call Tribe_Checking("Update_Hex", MOVE_CLAN, MOVE_TRIBE, CURRENT_MAP)

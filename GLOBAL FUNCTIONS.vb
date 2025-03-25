@@ -1,5 +1,5 @@
 Attribute VB_Name = "GLOBAL FUNCTIONS"
-'*                           VERSION 3.1t                                         *'
+'*                           VERSION 3.1.4                                         *'
 'first call is for Jeff's PC at Home
 'Declare Function DROLL Lib "e:\office\access\tribes\tvutil.dll" (ByVal roll_type%, ByVal level%, ByVal dice_sides%, ByVal reset_roll%, ByVal TRIBE%, ByVal PRESET%, ByVal MODIFY%) As Long
 
@@ -946,6 +946,7 @@ DoCmd.Hourglass True
 DoCmd.Close A_FORM, "GLOBAL INFO"
 DoCmd.OpenForm "GLOBAL INFO"
 
+ShowUpdateTribesVersion = 0
 '---update previous hex with string from previous hex (AB 20230729)
     DebugOP "UPDATE Previous_Hex with CURRENT HEX"
     Dim sSQL As String
@@ -1020,7 +1021,7 @@ DebugOP "Clean up absorbed tribes and update weather"
 Do Until TRIBEINFO.EOF
    TRIBEINFO.Edit
    HEXTABLE.MoveFirst
-   HEXTABLE.Seek "=", TRIBEINFO![Current Hex]
+   HEXTABLE.Seek "=", TRIBEINFO![CURRENT HEX]
    If HEXTABLE.NoMatch Then
       ' we have a problem with the hex information for the tribe
       Msg = TRIBEINFO![TRIBE] & " has a blank Current Hex which you need to fix"
@@ -1030,7 +1031,7 @@ Do Until TRIBEINFO.EOF
       GoTo Time_To_Leave
    ElseIf IsNull(HEXTABLE![WEATHER_ZONE]) Then
       ' we have a problem with the weather zone for the hexe
-      Msg = "Hex " & TRIBEINFO![Current Hex] & " has a null/blank weather zone and you will need to populate it to have everything process properly"
+      Msg = "Hex " & TRIBEINFO![CURRENT HEX] & " has a null/blank weather zone and you will need to populate it to have everything process properly"
       Response = MsgBox(Msg, True)
        Msg = "I will exit now so you can fix the data and restart"
       Response = MsgBox(Msg, True)
@@ -1069,6 +1070,8 @@ Do Until TRIBEINFO.EOF
 TRIBEINFO.MoveNext
 
 Loop
+' Conversion of HEX_MAP_CONST disabled after conversion is done
+' Call ConvertBuildingsTable
 
 Forms![GLOBAL INFO]![Status] = "Set up Herd Swaps"
 Forms![GLOBAL INFO].Repaint
@@ -1387,7 +1390,7 @@ TRIBESINFO![INACTIVES] = 5890
 TRIBESINFO![MORALE] = 1
 ' GET THE HEX THAT THE TRIBE IS IN.
 HEX_MAP = InputBox("What HEX is the new CLAN to live in?", "NEWCLAN", "AA 0101")
-TRIBESINFO![Current Hex] = HEX_MAP
+TRIBESINFO![CURRENT HEX] = HEX_MAP
 TRIBESINFO.UPDATE
 TRIBESINFO.Close
 
@@ -1482,7 +1485,7 @@ Set TVDBGM = TVWKSPACE.OpenDatabase(FILEGM, False, False)
 Set TRIBESINFO = TVDBGM.OpenRecordset("TRIBES_GENERAL_INFO")
 TRIBESINFO.index = "PRIMARYKEY"
 TRIBESINFO.Seek "=", Forms![NEW GROUP]![PARENT CLAN], Forms![NEW GROUP]![PARENT TRIBE]
-CURRENT_HEX = TRIBESINFO![Current Hex]
+CURRENT_HEX = TRIBESINFO![CURRENT HEX]
 CURRENT_COST_CLAN = TRIBESINFO![COST CLAN]
 CURRENT_TERRAIN = TRIBESINFO![CURRENT TERRAIN]
 If IsNull(TRIBESINFO![RELIGION]) Then
@@ -1498,9 +1501,9 @@ End If
 
 TRIBESINFO.AddNew
 TRIBESINFO![CLAN] = Forms![NEW GROUP]![New Clan]
-TRIBESINFO![TRIBE] = Forms![NEW GROUP]![NEW TRIBE]
+TRIBESINFO![TRIBE] = Forms![NEW GROUP]![New Tribe]
 TRIBESINFO![TRIBE NAME] = Null
-TRIBESINFO![Current Hex] = CURRENT_HEX
+TRIBESINFO![CURRENT HEX] = CURRENT_HEX
 TRIBESINFO![CURRENT TERRAIN] = CURRENT_TERRAIN
 TRIBESINFO![Village] = Forms![NEW GROUP]![Village]
 If Not IsNull(RELIGION) And Not (RELIGION = "") Then
@@ -1526,8 +1529,8 @@ Set TRIBES_CHECKING = TVDBGM.OpenRecordset("TRIBE_CHECKING")
 TRIBES_CHECKING.index = "PRIMARYKEY"
 TRIBES_CHECKING.AddNew
 TRIBES_CHECKING![CLAN] = Forms![NEW GROUP]![New Clan]
-TRIBES_CHECKING![TRIBE] = Forms![NEW GROUP]![NEW TRIBE]
-TRIBES_CHECKING![Current Hex] = CURRENT_HEX
+TRIBES_CHECKING![TRIBE] = Forms![NEW GROUP]![New Tribe]
+TRIBES_CHECKING![CURRENT HEX] = CURRENT_HEX
 TRIBES_CHECKING.UPDATE
 TRIBES_CHECKING.Close
 
@@ -1538,12 +1541,12 @@ Globaltable.Close
 
 Set FarmingTable = TVDBGM.OpenRecordset("TRIBE_FARMING")
 FarmingTable.index = "PRIMARYKEY"
-FarmingTable.Seek "=", Forms![NEW GROUP]![New Clan], Forms![NEW GROUP]![NEW TRIBE], Current_Turn
+FarmingTable.Seek "=", Forms![NEW GROUP]![New Clan], Forms![NEW GROUP]![New Tribe], Current_Turn
 
 If FarmingTable.NoMatch Then
    FarmingTable.AddNew
    FarmingTable![CLAN] = Forms![NEW GROUP]![New Clan]
-   FarmingTable![TRIBE] = Forms![NEW GROUP]![NEW TRIBE]
+   FarmingTable![TRIBE] = Forms![NEW GROUP]![New Tribe]
    FarmingTable![TURN] = Current_Turn
    FarmingTable![ITEM] = "START"
    FarmingTable.UPDATE
@@ -2472,7 +2475,7 @@ If Forms![TRANSFER SKILLS]![NEW SKILL LEVEL] = 0 Then
    SKILLSTABLE.Seek "=", Forms![TRANSFER SKILLS]![CURRENT TRIBE], Forms![TRANSFER SKILLS]![Skill]
    SKILLSTABLE.Delete
    SKILLSTABLE.AddNew
-   SKILLSTABLE![TRIBE] = Forms![TRANSFER SKILLS]![NEW TRIBE]
+   SKILLSTABLE![TRIBE] = Forms![TRANSFER SKILLS]![New Tribe]
    SKILLSTABLE![Skill] = Forms![TRANSFER SKILLS]![Skill]
    SKILLSTABLE![SKILL LEVEL] = Forms![TRANSFER SKILLS]![SKILL LEVEL]
    SKILLSTABLE.UPDATE
@@ -2485,7 +2488,7 @@ Else
    SKILLSTABLE![SKILL LEVEL] = Forms![TRANSFER SKILLS]![SKILL LEVEL] - Forms![TRANSFER SKILLS]![NEW SKILL LEVEL]
    SKILLSTABLE.UPDATE
    SKILLSTABLE.AddNew
-   SKILLSTABLE![TRIBE] = Forms![TRANSFER SKILLS]![NEW TRIBE]
+   SKILLSTABLE![TRIBE] = Forms![TRANSFER SKILLS]![New Tribe]
    SKILLSTABLE![Skill] = Forms![TRANSFER SKILLS]![Skill]
    SKILLSTABLE![SKILL LEVEL] = Forms![TRANSFER SKILLS]![NEW SKILL LEVEL]
    SKILLSTABLE.UPDATE
@@ -2966,7 +2969,7 @@ If IsNull(CurrentHex) Then
    TRIBEINFO.MoveFirst
    TRIBEINFO.index = "PRIMARYKEY"
    TRIBEINFO.Seek "=", CLAN, TRIBE
-   CURRENT_HEX = TRIBEINFO![Current Hex]
+   CURRENT_HEX = TRIBEINFO![CURRENT HEX]
    TRIBEINFO.MoveFirst
    TRIBEINFO.index = "MAP"
    TRIBEINFO.Seek "=", CurrentHex
@@ -2999,7 +3002,7 @@ Do
    If TRIBEINFO.EOF Then
       Exit Do
    End If
-   If Not TRIBEINFO![Current Hex] = CURRENT_HEX Then
+   If Not TRIBEINFO![CURRENT HEX] = CURRENT_HEX Then
       Exit Do
    End If
 Loop
@@ -3790,10 +3793,10 @@ Next
 For count = 0 To 200
    RATING = CLAN_RATING(count)
    RECORD_COUNT = count
-   For COUNTER = 0 To 4000
-     If CLAN_RATING(COUNTER) > RATING Then
-        RATING = CLAN_RATING(COUNTER)
-        RECORD_COUNT = COUNTER
+   For Counter = 0 To 4000
+     If CLAN_RATING(Counter) > RATING Then
+        RATING = CLAN_RATING(Counter)
+        RECORD_COUNT = Counter
      End If
    Next
    CLAN_RATING(RECORD_COUNT) = 0
@@ -3806,10 +3809,10 @@ Next
 For count = 0 To 200
    RATING = CLAN_SKILL_RATING(count)
    RECORD_COUNT = count
-   For COUNTER = 0 To 4000
-     If CLAN_SKILL_RATING(COUNTER) > RATING Then
-        RATING = CLAN_SKILL_RATING(COUNTER)
-        RECORD_COUNT = COUNTER
+   For Counter = 0 To 4000
+     If CLAN_SKILL_RATING(Counter) > RATING Then
+        RATING = CLAN_SKILL_RATING(Counter)
+        RECORD_COUNT = Counter
      End If
    Next
    CLAN_SKILL_RATING(RECORD_COUNT) = 0
@@ -3822,10 +3825,10 @@ Next
 For count = 0 To 200
    RATING = CLAN_COMBAT_RATING(count)
    RECORD_COUNT = count
-   For COUNTER = 0 To 4000
-     If CLAN_COMBAT_RATING(COUNTER) > RATING Then
-        RATING = CLAN_COMBAT_RATING(COUNTER)
-        RECORD_COUNT = COUNTER
+   For Counter = 0 To 4000
+     If CLAN_COMBAT_RATING(Counter) > RATING Then
+        RATING = CLAN_COMBAT_RATING(Counter)
+        RECORD_COUNT = Counter
      End If
    Next
    CLAN_COMBAT_RATING(RECORD_COUNT) = 0
@@ -3838,10 +3841,10 @@ Next
 For count = 0 To 200
    RATING = CLAN_NAVAL_RATING(count)
    RECORD_COUNT = count
-   For COUNTER = 0 To 4000
-     If CLAN_NAVAL_RATING(COUNTER) > RATING Then
-        RATING = CLAN_NAVAL_RATING(COUNTER)
-        RECORD_COUNT = COUNTER
+   For Counter = 0 To 4000
+     If CLAN_NAVAL_RATING(Counter) > RATING Then
+        RATING = CLAN_NAVAL_RATING(Counter)
+        RECORD_COUNT = Counter
      End If
    Next
    CLAN_NAVAL_RATING(RECORD_COUNT) = 0
@@ -4211,7 +4214,7 @@ ElseIf ACTION = "Update_Hex" Then
    TRIBECHECK.MoveFirst
    TRIBECHECK.Seek "=", CLAN, TRIBE
    TRIBECHECK.Edit
-   TRIBECHECK![Current Hex] = HEX
+   TRIBECHECK![CURRENT HEX] = HEX
    TRIBECHECK.UPDATE
 
 ElseIf ACTION = "Get_Hex" Then
@@ -4219,7 +4222,7 @@ ElseIf ACTION = "Get_Hex" Then
    TRIBECHECK.index = "PRIMARYKEY"
    TRIBECHECK.MoveFirst
    TRIBECHECK.Seek "=", CLAN, TRIBE
-   Tribe_Checking_Hex = TRIBECHECK![Current Hex]
+   Tribe_Checking_Hex = TRIBECHECK![CURRENT HEX]
 
 ElseIf ACTION = "Get_People" Then
    Set TRIBECHECK = TVDBGM.OpenRecordset("Tribe_CHECKING")
@@ -4493,5 +4496,96 @@ Call Tribe_Checking("Update_All", "", "", "")
 
 
 
+End Function
+
+Public Function ConvertBuildingsTable()
+' Converts HEX_MAP_CONST table to new format where absence of container
+' building marked as -1 instead of 0
+Dim Counter As Long
+Dim MSG1 As String
+Set HEXCONSTTABLE = TVDBGM.OpenRecordset("HEX_MAP_CONST")
+HEXCONSTTABLE.index = "TRIBECONST"
+HEXCONSTTABLE.MoveFirst
+
+Set VALIDBUILDINGS = TVDB.OpenRecordset("VALID_BUILDINGS")
+VALIDBUILDINGS.index = "PRIMARYKEY"
+
+
+Do Until HEXCONSTTABLE.EOF
+
+   VALIDBUILDINGS.MoveFirst
+   VALIDBUILDINGS.Seek "=", HEXCONSTTABLE![CONSTRUCTION]
+   If Not VALIDBUILDINGS.NoMatch Then
+     If VALIDBUILDINGS![LIMITS] >= 10 Then
+        If HEXCONSTTABLE![1] <> -1 And _
+           HEXCONSTTABLE![2] <> -1 And _
+           HEXCONSTTABLE![3] <> -1 And _
+           HEXCONSTTABLE![4] <> -1 And _
+           HEXCONSTTABLE![5] <> -1 And _
+           HEXCONSTTABLE![6] <> -1 And _
+           HEXCONSTTABLE![7] <> -1 And _
+           HEXCONSTTABLE![8] <> -1 And _
+           HEXCONSTTABLE![9] <> -1 And _
+           HEXCONSTTABLE![10] <> -1 Then
+           HEXCONSTTABLE.Edit
+           If HEXCONSTTABLE![1] = 0 Then
+                 HEXCONSTTABLE![1] = -1
+                 Counter = Counter + 1
+              End If
+              If HEXCONSTTABLE![2] = 0 Then
+                 HEXCONSTTABLE![2] = -1
+                 Counter = Counter + 1
+              End If
+              If HEXCONSTTABLE![3] = 0 Then
+                 HEXCONSTTABLE![3] = -1
+                 Counter = Counter + 1
+              End If
+              If HEXCONSTTABLE![4] = 0 Then
+                 HEXCONSTTABLE![4] = -1
+                 Counter = Counter + 1
+              End If
+              If HEXCONSTTABLE![5] = 0 Then
+                 HEXCONSTTABLE![5] = -1
+                 Counter = Counter + 1
+              End If
+              If HEXCONSTTABLE![6] = 0 Then
+                 HEXCONSTTABLE![6] = -1
+                 Counter = Counter + 1
+              End If
+              If HEXCONSTTABLE![7] = 0 Then
+                 HEXCONSTTABLE![7] = -1
+                 Counter = Counter + 1
+              End If
+              If HEXCONSTTABLE![8] = 0 Then
+                 HEXCONSTTABLE![8] = -1
+                 Counter = Counter + 1
+              End If
+              If HEXCONSTTABLE![9] = 0 Then
+                 HEXCONSTTABLE![9] = -1
+                 Counter = Counter + 1
+              End If
+              If HEXCONSTTABLE![10] = 0 Then
+                 HEXCONSTTABLE![10] = -1
+                 Counter = Counter + 1
+              End If
+              HEXCONSTTABLE.UPDATE
+         End If
+     End If
+  Else
+   MSG1 = "Buildings table conversion. Construction " & HEXCONSTTABLE![CONSTRUCTION] & " was not found in Valid Buildings table"
+   Response = MsgBox(MSG1, True)
+  End If
+   HEXCONSTTABLE.MoveNext
+   If HEXCONSTTABLE.EOF Then
+         Exit Do
+   End If
+Loop
+
+If (Counter > 0) Then
+   MSG1 = "Buildings table conversion. " & Counter & " converted."
+   Response = MsgBox(MSG1, True)
+End If
+HEXCONSTTABLE.Close
+VALIDBUILDINGS.Close
 End Function
 

@@ -4,6 +4,7 @@ Option Explicit
 
 '*===============================================================================*'
 '*****                          MAINTENANCE LOG                              *****'
+'*                              VERSION 3.1.6                                    *'
 '*-------------------------------------------------------------------------------*'
 '**   DATE    *  DESCRIPTION                                                    **'
 '*-------------------------------------------------------------------------------*'
@@ -30,8 +31,22 @@ Option Explicit
 '** 08/04/20  * Placed a check in place to ensure if an incorrect activity is   **'
 '**           * entered then it will be ignored and processing will continue    **'
 '**                                                                             **'
+'** 05/03/25  * Apotecary implementation added (AlexD)                          **'
+'** 05/03/25  *                                           **'
+'** 05/03/25  * Salting added to Fishing, so that unused fish may be salted. (AlexD) **'
+'** 05/03/25  * Engineering of container/Installation buildings rewritten (AlexD)    **'
+'** 05/03/25  * Added eligibility checks for engineering  (AlexD)               **'
+'** 05/03/25  * Farming of non-permanent crops fixed (AlexD)                    **'
+'** 05/03/25  * Fixing wrong resource consumption for 4 skills:                 **'
+'**                BONEWORK, CURING, DRESSING and STONEWORK (AlexD)             **'
+'** 05/03/25  * Fixing wrong food consumption via GT (fish, milk and bread) (AlexD)  **'
+'** 05/03/25  * Fixing Iron Burner problem     (AlexD)                          **'
+'** 05/03/25  * Enabled food consumption print (AlexD)                          **'
+'** 19/03/25  * Disabled "TOWER WOODEN" (AlexD)                                 **'
+'** 20/03/25  * Fixed farming in adjacient hex  (AlexD)                         **'
+'** 20/03/25  * Fixed fish dissapearance (AlexD)                                **'
 '*===============================================================================*'
- 
+
 ' MODULE NAME IS TURN ACTIVITIES
 ' Number variables.  Long has no decimal points, double has decimal points
 Global Mycontrol As Control
@@ -238,6 +253,7 @@ Global POLITICS_LEVEL As Long
 Global RELIGION_LEVEL As Long
 Global ROWING_LEVEL As Long
 Global SAILING_LEVEL As Long
+Global SALTING_LEVEL As Long
 Global SANITATION_LEVEL As Long
 Global SCOUTING_LEVEL As Long
 Global SEAMANSHIP_LEVEL As Long
@@ -612,6 +628,7 @@ Global STONE20 As Long
 Global STONE25 As Long
 Global STONE30 As Long
 Global SINGLE_CONSTRUCTION As String
+Global sCheckResult As String
 
 ' Error Handling Variables
 Global errorstring As String
@@ -620,7 +637,7 @@ Global Function_Section As String
 Global sklevel As Integer
 Global RATING As Double
 Global RECORD_COUNT As Long
-Global COUNTER As Long
+Global Counter As Long
 Global COST_CLAN As String
 Global DICE As Long
 Global DICE1 As Long
@@ -726,7 +743,7 @@ Global NUMBER_OF_HONEY As Long
 Global NUMBER_OF_SPICE As Long
 Global NUMBER_OF_MINERALS As Long
 Global NUMBER_OF_GOATS As Long
-Global NUMBER_OF_CATTLE As Long
+Global Number_Of_Cattle As Long
 Global Number_Of_Horses As Long
 Global NUMBER_OF_SHEEP As Long
 Global Number_Of_Camels As Long
@@ -1162,7 +1179,7 @@ Do Until TRIBESINFO.EOF
    EXECUTION_STATUS = "Start of do"
    TCLANNUMBER = TRIBESINFO![CLAN]
    TTRIBENUMBER = TRIBESINFO![TRIBE]
-   Tribes_Current_Hex = TRIBESINFO![Current Hex]
+   Tribes_Current_Hex = TRIBESINFO![CURRENT HEX]
    TRIBES_TERRAIN = TRIBESINFO![CURRENT TERRAIN]
 
 Forms![FINAL_ACTIVITIES]![Status] = "Processing Tribe" & TCLANNUMBER & " " & TTRIBENUMBER
@@ -1578,10 +1595,6 @@ Mercenaries_Unpaid = 0
    Forms![FINAL_ACTIVITIES]![Status] = "Process Annual Costs for " & TTRIBENUMBER
    Forms![FINAL_ACTIVITIES].Repaint
 
-
-
-
-
    Forms![FINAL_ACTIVITIES]![Status] = "Move to next unit"
    Forms![FINAL_ACTIVITIES].Repaint
 
@@ -1592,6 +1605,21 @@ Mercenaries_Unpaid = 0
    If TRIBESINFO![CLAN] <> TCLANNUMBER Then
       ' need to process Research costs for last clan
       Call Process_Clan_Research_Costs
+      ' Nullify all unstable items
+    TRIBESGOODS.MoveFirst
+    Do Until TRIBESGOODS.EOF
+        If TRIBESGOODS![CLAN] = TCLANNUMBER Then
+            If TRIBESGOODS![ITEM] = "FISH" Or _
+                TRIBESGOODS![ITEM] = "MILK" Or _
+                TRIBESGOODS![ITEM] = "BREAD" Then
+                TRIBESGOODS.Edit
+                TRIBESGOODS![ITEM_NUMBER] = 0
+                TRIBESGOODS.UPDATE
+            End If
+        End If
+        TRIBESGOODS.MoveNext
+    Loop
+
    End If
    
    If TRIBESINFO.EOF Then
@@ -1605,16 +1633,17 @@ Loop
 Forms![FINAL_ACTIVITIES]![Status] = "Clean up of TRIBESGOODS"
 Forms![FINAL_ACTIVITIES].Repaint
 
+
 TRIBESGOODS.MoveFirst
+
 Do Until TRIBESGOODS.EOF
-   TRIBESGOODS.Edit
    If TRIBESGOODS![ITEM_NUMBER] <= 0 Then
       TRIBESGOODS.Delete
    End If
-
    TRIBESGOODS.MoveNext
 Loop
 
+    
 Forms![FINAL_ACTIVITIES]![Status] = "Clean up Specialists"
 Forms![FINAL_ACTIVITIES].Repaint
 
@@ -2265,6 +2294,15 @@ ERR_PERFORM_APIARISM:
 
 End Function
 
+Public Function PERFORM_APOTHECARY()
+On Error GoTo ERR_PERFORM_APOTHECARY
+TRIBE_STATUS = "PERFORM_APOTHECARY"
+Call PERFORM_COMMON("Y", "Y", "Y", 3, "NONE")
+ERR_PERFORM_APOTHECARY_CLOSE:
+Exit Function
+ERR_PERFORM_APOTHECARY:
+Call A999_ERROR_HANDLING
+Resume ERR_PERFORM_APOTHECARY_CLOSE
 Public Function PERFORM_BAKING()
 On Error GoTo ERR_BAKING
 TRIBE_STATUS = "PERFORM_BAKING"
@@ -2491,7 +2529,7 @@ Index1 = 1
             Else
                ITEM = TGoods(Index1)
             End If
-            Call UPDATE_TRIBES_GOODS_TABLES(TCLANNUMBER, GOODS_TRIBE, ITEM, "SUBTRACT", TQuantity(Index1))
+            Call UPDATE_TRIBES_GOODS_TABLES(TCLANNUMBER, GOODS_TRIBE, ITEM, "SUBTRACT", (TNUMOCCURS * TQuantity(Index1)))
          End If
          Index1 = Index1 + 1
       Loop
@@ -2701,7 +2739,7 @@ TRIBE_STATUS = "PERFORM_CURING"
             Else
                ITEM = TGoods(Index1)
             End If
-            Call UPDATE_TRIBES_GOODS_TABLES(TCLANNUMBER, GOODS_TRIBE, ITEM, "SUBTRACT", TQuantity(Index1))
+            Call UPDATE_TRIBES_GOODS_TABLES(TCLANNUMBER, GOODS_TRIBE, ITEM, "SUBTRACT", (TNUMOCCURS * TQuantity(Index1)))
          End If
          Index1 = Index1 + 1
       Loop
@@ -2842,7 +2880,7 @@ If ModifyTable = "Y" Then
          Else
             ITEM = TGoods(Index1)
          End If
-         Call UPDATE_TRIBES_GOODS_TABLES(TCLANNUMBER, GOODS_TRIBE, ITEM, "SUBTRACT", TQuantity(Index1))
+         Call UPDATE_TRIBES_GOODS_TABLES(TCLANNUMBER, GOODS_TRIBE, ITEM, "SUBTRACT", (TNUMOCCURS * TQuantity(Index1)))
       End If
       Index1 = Index1 + 1
    Loop
@@ -3086,20 +3124,19 @@ TFishing = TFishing + CLng(TSpecialists * 2.6)
 'Multiply fish my skill level and weather
 TFishing = TFishing + (CLng((TFishing * FISHING_WEATHER) * ((10 + FISHING_LEVEL) / 10)))
 
+If TFishing <= 0 Then
+   TFishing = 1
+End If
 
-' check for salt, if have salt then max fish is = salt + TMouths
-' 10 Salt = 100 Fish
-
-'TOTAL_SALT = GET_TRIBES_GOOD_QUANTITY(TCLANNUMBER, Goods_Tribe, "SALT")
-
-'If TOTAL_SALT > 0 Then
-'   If (TFishing - TMouths) <= (TOTAL_SALT * 10) Then
-      'Fishing is good
-'   Else
-'      TFishing = TMouths + (TOTAL_SALT * 10)
-'   End If
-'End If
-      
+TFish_Caught = TFishing
+If TFish_Caught > 0 Then
+   Call Check_Turn_Output(", Caught ", "fish ", "", TFish_Caught, "NO")
+End If
+    
+    
+If TDistinction = "SALTING" Then
+        TFishing = processSaltingExtraFish(TCLANNUMBER, GOODS_TRIBE, TFishing)
+End If
 
 ' Update Tribe Table
 Call UPDATE_TRIBES_GOODS_TABLES(TCLANNUMBER, GOODS_TRIBE, "FISH", "ADD", TFishing)
@@ -3108,13 +3145,6 @@ TSkillok(1) = "N"
 ' Update output line
 DoCmd.Hourglass True
 
-If TFishing <= 0 Then
-   TFishing = 1
-End If
-
-TFish_Caught = TFishing
-
-   Call Check_Turn_Output(", Caught ", "fish ", "", TFishing, "NO")
 
 
 ERR_PERFORM_FISHING_CLOSE:
@@ -4004,25 +4034,48 @@ FARMERS = TActives
 NEW_CROP = CLIMATETABLE![ITEM_NUMBER]
    
 If CROP_TYPE = "TEMPORARY" Then
-   FarmingTable.MoveFirst
-   ' MULTIPLY BY WEATHER_TURN1
+' ==================Harvesting Modification================== (Alex 21.05.2024)
+   CURR_TURN = Left(Current_Turn, 2)
    FARMING_TURN1 = "01" & Right(Current_Turn, 4)
-   FarmingTable.MoveFirst
-   FarmingTable.Seek "=", Tribes_Current_Hex, TCLANNUMBER, TTRIBENUMBER, FARMING_TURN1, CROP
-   GET_FARMING_TURN = "YES"
-   Do Until FarmingTable![ITEM_NUMBER] > 0
-      If Left(FARMING_TURN1, 2) = "10" Then
-         Msg = ", NO " & CROP & " Planted, "
-         Call Check_Turn_Output(Msg, " ", "", 0, "NO")
-         Exit Function
-      End If
-      Call GET_FARMING_TURN1
-      FarmingTable.MoveFirst
-      FarmingTable.Seek "=", Tribes_Current_Hex, TCLANNUMBER, TTRIBENUMBER, FARMING_TURN1, CROP
-      If FarmingTable![ITEM_NUMBER] > 0 Then
-         Exit Do
-      End If
+   GET_FARMING_TURN = "NO"
+   Do
+       FarmingTable.MoveFirst
+       FarmingTable.Seek "=", Tribes_Current_Hex, TCLANNUMBER, TTRIBENUMBER, FARMING_TURN1, CROP
+       If (FarmingTable.NoMatch) Then
+            GET_FARMING_TURN = "NO"
+' Record was not found. Skip this month
+       ElseIf FarmingTable![ITEM_NUMBER] > 0 Then
+              GET_FARMING_TURN = "YES"
+              Exit Do
+       End If
+            Call GET_FARMING_TURN1
+           FARM_TURN = Left(FARMING_TURN1, 2)
+           If FARM_TURN > CURR_TURN - 3 Then
+               GET_FARMING_TURN = "EARLY"
+               Exit Do
+           End If
+           If FARM_TURN >= 10 Then
+               GET_FARMING_TURN = "LATE"
+               Exit Do
+           End If
    Loop
+   
+ If (GET_FARMING_TURN = "NO") Then
+          Msg = ", NO " & CROP & " to harvest, "
+          Call Check_Turn_Output(Msg, " ", "", 0, "NO")
+          Exit Function
+ End If
+If (GET_FARMING_TURN = "LATE") Then
+'          Msg = ", Too late to harvest " & CROP & ", "
+'          Call Check_Turn_Output(Msg, " ", "", 0, "NO")
+          Exit Function
+ End If
+If (GET_FARMING_TURN = "EARLY") Then
+ '         Msg = ", Too early to harvest " & CROP & ", "
+ '         Call Check_Turn_Output(Msg, " ", "", 0, "NO")
+          Exit Function
+ End If
+ ' ==================Harvesting Modification END===================================
    GET_FARMING_TURN = "NO"
    GAMES_WEATHER.MoveFirst
    GAMES_WEATHER.Seek "=", CURRENT_WEATHER_ZONE, FARMING_TURN1
@@ -4030,7 +4083,7 @@ If CROP_TYPE = "TEMPORARY" Then
    CURR_TURN = Left(Current_Turn, 2)
    FARM_TURN = Left(FARMING_TURN1, 2)
    
-   If CURR_TURN >= FARM_TURN +3 Then
+   If CURR_TURN >= FARM_TURN + 3 Then
       WEATHER_TURN1 = GAMES_WEATHER![WEATHER]
       FarmingTable.Edit
    
@@ -4043,6 +4096,13 @@ If CROP_TYPE = "TEMPORARY" Then
          FARMERS = FARMERS + TSpecialists
       End If
       
+        'If CROP = "GRAPES" Then
+         '   Num_Trellis = GET_TRIBES_GOOD_QUANTITY(TCLANNUMBER, GOODS_TRIBE, "Trellis")
+         '   If Num_Trellis > 0 Then
+         '       FARMERS = Round(FARMERS * 1.25, 0)
+          '  End If
+        'End If
+      
       ' Set specialists to zero incase of a loop
       TSpecialists = 0
    
@@ -4051,6 +4111,9 @@ If CROP_TYPE = "TEMPORARY" Then
          If FarmingTable![ITEM_NUMBER] >= ACRES_HARVESTING Then
             FarmingTable![ITEM_NUMBER] = FarmingTable![ITEM_NUMBER] - ACRES_HARVESTING
             ACRES_HARVESTED = ACRES_HARVESTED + ACRES_HARVESTING
+            'Otherwise extra farmer will be deducted: (AlexD 23.06.2024)
+            If FarmingTable![ITEM_NUMBER] = 0 Then Exit Do
+           
          Else
             ACRES_HARVESTED = ACRES_HARVESTED + FarmingTable![ITEM_NUMBER]
             FarmingTable![ITEM_NUMBER] = 0
@@ -4063,28 +4126,30 @@ If CROP_TYPE = "TEMPORARY" Then
       End If
 
       FarmingTable.UPDATE
-
+      
+      NEW_CROP = CLng(NEW_CROP * ACRES_HARVESTED)
+      
       'This is actually the place where the crop is modified for turn 1 (first turn of the crop) wheather
       WEATHERTABLE.MoveFirst
       WEATHERTABLE.Seek "=", WEATHER_TURN1, "PLANTING", WEATHER_CROP
       NEW_CROP = NEW_CROP * WEATHERTABLE![Modifier]
 
       ' MULTIPLY BY WEATHER while growing
-      If Not NO_FARMING = "YES" Then
-		Call GET_FARMING_TURN1
-		FARM_TURN = Left(FARMING_TURN1, 2)	  
-        Do Until FARM_TURN < CURR_TURN
-			FarmingTable.MoveFirst
-			FarmingTable.Seek "=", Tribes_Current_Hex, TCLANNUMBER, TTRIBENUMBER, FARMING_TURN1, "WEATHER"
-			GAMES_WEATHER.MoveFirst
-			GAMES_WEATHER.Seek "=", CURRENT_WEATHER_ZONE, FARMING_TURN1
-			WEATHER_TURN2 = GAMES_WEATHER![WEATHER]
-			WEATHERTABLE.MoveFirst
-			WEATHERTABLE.Seek "=", WEATHER_TURN2, "GROWING", WEATHER_CROP
-			NEW_CROP = NEW_CROP * WEATHERTABLE![Modifier]
-			Call GET_FARMING_TURN1
-			FARM_TURN = Left(FARMING_TURN1, 2)
-         loop     
+      'If Not NO_FARMING = "YES" Then
+        Call GET_FARMING_TURN1
+        FARM_TURN = Left(FARMING_TURN1, 2)
+        Do Until FARM_TURN >= CURR_TURN
+            FarmingTable.MoveFirst
+            FarmingTable.Seek "=", Tribes_Current_Hex, TCLANNUMBER, TTRIBENUMBER, FARMING_TURN1, "WEATHER"
+            GAMES_WEATHER.MoveFirst
+            GAMES_WEATHER.Seek "=", CURRENT_WEATHER_ZONE, FARMING_TURN1
+            WEATHER_TURN2 = GAMES_WEATHER![WEATHER]
+            WEATHERTABLE.MoveFirst
+            WEATHERTABLE.Seek "=", WEATHER_TURN2, "GROWING", WEATHER_CROP
+            NEW_CROP = NEW_CROP * WEATHERTABLE![Modifier]
+            Call GET_FARMING_TURN1
+            FARM_TURN = Left(FARMING_TURN1, 2)
+         Loop
          ' MULTIPLY BY WEATHER while harvesting
          FarmingTable.MoveFirst
          FarmingTable.Seek "=", Tribes_Current_Hex, TCLANNUMBER, TTRIBENUMBER, FARMING_TURN1, "WEATHER"
@@ -4094,7 +4159,7 @@ If CROP_TYPE = "TEMPORARY" Then
          WEATHERTABLE.MoveFirst
          WEATHERTABLE.Seek "=", WEATHER_TURN3, "HARVESTING", WEATHER_CROP
          NEW_CROP = NEW_CROP * WEATHERTABLE![Modifier]
-      End If
+      'End If
 
       ' FRESH WATER > 0 THEN MULTPILY BY 1.1
       If FRESH_WATER > 0 Then
@@ -4104,7 +4169,7 @@ If CROP_TYPE = "TEMPORARY" Then
       ' * ((10 + SKILL LEVEL) / 10)
       NEW_CROP = NEW_CROP * ((10 + FARMING_LEVEL) / 10)
  
-      NEW_CROP = CLng(NEW_CROP * ACRES_HARVESTED)
+      'NEW_CROP = CLng(NEW_CROP * ACRES_HARVESTED)
  
       Call Get_Research_Data(TCLANNUMBER, Skill_Tribe, "Fertiliser")
    
@@ -4127,6 +4192,9 @@ If CROP_TYPE = "TEMPORARY" Then
       FARMERS = 0
       HARVEST_CONTINUE = "YES"
       Call PERFORM_HARVESTING(CLIMATE, CROP)
+' Else case added to clean HARVEST_CONTINUE (Alex 21.05.2024)
+    Else
+      HARVEST_CONTINUE = "NO"
    End If
   
    If MSG1 = "EMPTY" Then
@@ -5231,7 +5299,7 @@ Else
       If Not HEXMAPCONST.EOF Then
          HEXMAPCONST.MoveFirst
       End If
-      HEXMAPCONST.Seek "=", TRIBESINFO![Current Hex], TCLANNUMBER, "BAKERY"
+      HEXMAPCONST.Seek "=", TRIBESINFO![CURRENT HEX], TCLANNUMBER, "BAKERY"
 
       If HEXMAPCONST.NoMatch Then
          Exit Function
@@ -5324,7 +5392,9 @@ Public Function PERFORM_SALTING()
 On Error GoTo ERR_PERFORM_SALTING
 TRIBE_STATUS = "PERFORM_SALTING"
 
-
+'If TActives >= 10 * SALTING_LEVEL Then
+'    TActives = 10 * SALTING_LEVEL
+'End If
 
    Call PERFORM_COMMON("Y", "Y", "Y", 3, "NONE")
     
@@ -5826,7 +5896,7 @@ Index1 = 1
             Else
                ITEM = TGoods(Index1)
             End If
-            Call UPDATE_TRIBES_GOODS_TABLES(TCLANNUMBER, GOODS_TRIBE, ITEM, "SUBTRACT", TQuantity(Index1))
+            Call UPDATE_TRIBES_GOODS_TABLES(TCLANNUMBER, GOODS_TRIBE, ITEM, "SUBTRACT", (TNUMOCCURS * TQuantity(Index1)))
          End If
          Index1 = Index1 + 1
       Loop
@@ -6513,6 +6583,14 @@ Else
    RELIGION_LEVEL = SKILLSTABLE![SKILL LEVEL]
 End If
 
+SKILLSTABLE.Seek "=", Skill_Tribe, "SALTING"
+
+If SKILLSTABLE.NoMatch Then
+   SALTING_LEVEL = 0
+Else
+   SALTING_LEVEL = SKILLSTABLE![SKILL LEVEL]
+End If
+
 SKILLSTABLE.Seek "=", Skill_Tribe, "SANITATION"
 
 If SKILLSTABLE.NoMatch Then
@@ -6846,7 +6924,7 @@ If Not HEXMAPCONST.EOF Then
    HEXMAPCONST.index = "PRIMARYKEY"
    HEXMAPCONST.MoveFirst
 End If
-HEXMAPCONST.Seek "=", TRIBESINFO![Current Hex], TCLANNUMBER, TTRIBENUMBER, "MEETING HOUSE"
+HEXMAPCONST.Seek "=", TRIBESINFO![CURRENT HEX], TCLANNUMBER, TTRIBENUMBER, "MEETING HOUSE"
 VILLAGE_FOUND = "N"
   
 If HEXMAPCONST.NoMatch Then
@@ -6855,14 +6933,14 @@ If HEXMAPCONST.NoMatch Then
 ElseIf HEXMAPCONST![CLAN] = TCLANNUMBER Then
    VILLAGE_FOUND = "Y"
    HEXMAPCONST.MoveFirst
-   HEXMAPCONST.Seek "=", TRIBESINFO![Current Hex], TCLANNUMBER, TTRIBENUMBER, "TRADING POST"
+   HEXMAPCONST.Seek "=", TRIBESINFO![CURRENT HEX], TCLANNUMBER, TTRIBENUMBER, "TRADING POST"
    If Not HEXMAPCONST.NoMatch Then
       If HEXMAPCONST![1] > 0 Then
          HEXMAPCONST.MoveFirst
-         HEXMAPCONST.Seek "=", TRIBESINFO![Current Hex], TCLANNUMBER, TTRIBENUMBER, "Months TP Open"
+         HEXMAPCONST.Seek "=", TRIBESINFO![CURRENT HEX], TCLANNUMBER, TTRIBENUMBER, "Months TP Open"
          If HEXMAPCONST.NoMatch Then
             HEXMAPCONST.AddNew
-            HEXMAPCONST![MAP] = TRIBESINFO![Current Hex]
+            HEXMAPCONST![MAP] = TRIBESINFO![CURRENT HEX]
             HEXMAPCONST![CLAN] = TCLANNUMBER
             HEXMAPCONST![TRIBE] = TTRIBENUMBER
             HEXMAPCONST![CONSTRUCTION] = "MONTHS TP OPEN"
@@ -7696,7 +7774,7 @@ If Not TRIBESGOODS.NoMatch Then
    TMouths = TMouths + CLng(TRIBESGOODS![ITEM_NUMBER] / 2)
 End If
 
-Msg = "Provs eaten, "
+Msg = "Provs eaten: "
 
 ' UPDATE PROVS EATEN
 TRIBESGOODS.MoveFirst
@@ -7705,62 +7783,71 @@ If TRIBESGOODS.NoMatch Then
    EXTRA_PROVS = 0
 Else
    EXTRA_PROVS = TRIBESGOODS![ITEM_NUMBER] / 10
-   TRIBESGOODS.Edit
-   TRIBESGOODS![ITEM_NUMBER] = 0
-   TRIBESGOODS.UPDATE
 End If
 
 If TMouths > 0 And EXTRA_PROVS > 0 Then
    If EXTRA_PROVS > TMouths Then
       Msg = Msg & TMouths & " milk, "
+      TRIBESGOODS.Edit
+      TRIBESGOODS![ITEM_NUMBER] = TRIBESGOODS![ITEM_NUMBER] - TMouths
+      TRIBESGOODS.UPDATE
       TMouths = 0
-      EXTRA_PROVS = 0
+
    Else
       Msg = Msg & EXTRA_PROVS & " milk, "
       TMouths = TMouths - EXTRA_PROVS
-      EXTRA_PROVS = 0
+      TRIBESGOODS.Edit
+      TRIBESGOODS![ITEM_NUMBER] = 0
+      TRIBESGOODS.UPDATE
    End If
 End If
 
 TRIBESGOODS.MoveFirst
 TRIBESGOODS.Seek "=", TCLANNUMBER, GOODS_TRIBE, "FINISHED", "BREAD"
-If Not TRIBESGOODS.NoMatch Then
-   EXTRA_PROVS = EXTRA_PROVS + TRIBESGOODS![ITEM_NUMBER]
-   TRIBESGOODS.Edit
-   TRIBESGOODS![ITEM_NUMBER] = 0
-   TRIBESGOODS.UPDATE
+If TRIBESGOODS.NoMatch Then
+   EXTRA_PROVS = 0
+Else
+   EXTRA_PROVS = TRIBESGOODS![ITEM_NUMBER]
 End If
- 
+
 If TMouths > 0 And EXTRA_PROVS > 0 Then
    If EXTRA_PROVS > TMouths Then
       Msg = Msg & TMouths & " bread, "
-      TMouths = 0
-      EXTRA_PROVS = 0
+      TRIBESGOODS.Edit
+      TRIBESGOODS![ITEM_NUMBER] = TRIBESGOODS![ITEM_NUMBER] - TMouths
+      TRIBESGOODS.UPDATE
+
    Else
       Msg = Msg & EXTRA_PROVS & " bread, "
       TMouths = TMouths - EXTRA_PROVS
-      EXTRA_PROVS = 0
+      TRIBESGOODS.Edit
+      TRIBESGOODS![ITEM_NUMBER] = 0
+      TRIBESGOODS.UPDATE
+      TMouths = 0
    End If
 End If
 
 TRIBESGOODS.MoveFirst
 TRIBESGOODS.Seek "=", TCLANNUMBER, GOODS_TRIBE, "RAW", "FISH"
-If Not TRIBESGOODS.NoMatch Then
-   EXTRA_PROVS = EXTRA_PROVS + TRIBESGOODS![ITEM_NUMBER]
-   TRIBESGOODS.Edit
-   TRIBESGOODS![ITEM_NUMBER] = 0
-   TRIBESGOODS.UPDATE
+If TRIBESGOODS.NoMatch Then
+   EXTRA_PROVS = 0
+Else
+   EXTRA_PROVS = TRIBESGOODS![ITEM_NUMBER]
 End If
 
 If TMouths > 0 And EXTRA_PROVS > 0 Then
    If EXTRA_PROVS > TMouths Then
       Msg = Msg & TMouths & " fish, "
+      TRIBESGOODS.Edit
+      TRIBESGOODS![ITEM_NUMBER] = TRIBESGOODS![ITEM_NUMBER] - TMouths
+      TRIBESGOODS.UPDATE
       TMouths = 0
-      EXTRA_PROVS = 0
    Else
       Msg = Msg & EXTRA_PROVS & " fish, "
       TMouths = TMouths - EXTRA_PROVS
-      EXTRA_PROVS = 0
+      TRIBESGOODS.Edit
+      TRIBESGOODS![ITEM_NUMBER] = 0
+      TRIBESGOODS.UPDATE
    End If
 End If
 
@@ -7973,9 +8060,9 @@ End If
   
 TOTAL_PROVS_AVAILABLE = 0
   
-If TCLANNUMBER = "0330" Then
+'If TCLANNUMBER = "0330" Then
    Call Check_Turn_Output("", Msg, "", 0, "NO")
-End If
+'End If
 
 If TOTAL_PROVS_AVAILABLE < TMouths Then
    If TOTAL_PROVS_AVAILABLE < TMouths Then
@@ -9320,16 +9407,17 @@ Else
       Building_Used![USED] = Building_Used![USED] + 1
       Building_Used.UPDATE
    End If
-   TManufacturingLimit = HEXMAPCONST![1]
-   TManufacturingLimit = TManufacturingLimit + HEXMAPCONST![2]
-   TManufacturingLimit = TManufacturingLimit + HEXMAPCONST![3]
-   TManufacturingLimit = TManufacturingLimit + HEXMAPCONST![4]
-   TManufacturingLimit = TManufacturingLimit + HEXMAPCONST![5]
-   TManufacturingLimit = TManufacturingLimit + HEXMAPCONST![6]
-   TManufacturingLimit = TManufacturingLimit + HEXMAPCONST![7]
-   TManufacturingLimit = TManufacturingLimit + HEXMAPCONST![8]
-   TManufacturingLimit = TManufacturingLimit + HEXMAPCONST![9]
-   TManufacturingLimit = TManufacturingLimit + HEXMAPCONST![10]
+   ' HEXMAPCONST![N] may be -1 meaning building was not built. 0 means it is built but has no installations
+   If HEXMAPCONST![1] > 0 Then TManufacturingLimit = HEXMAPCONST![1]
+   If HEXMAPCONST![2] > 0 Then TManufacturingLimit = TManufacturingLimit + HEXMAPCONST![2]
+   If HEXMAPCONST![3] > 0 Then TManufacturingLimit = TManufacturingLimit + HEXMAPCONST![3]
+   If HEXMAPCONST![4] > 0 Then TManufacturingLimit = TManufacturingLimit + HEXMAPCONST![4]
+   If HEXMAPCONST![5] > 0 Then TManufacturingLimit = TManufacturingLimit + HEXMAPCONST![5]
+   If HEXMAPCONST![6] > 0 Then TManufacturingLimit = TManufacturingLimit + HEXMAPCONST![6]
+   If HEXMAPCONST![7] > 0 Then TManufacturingLimit = TManufacturingLimit + HEXMAPCONST![7]
+   If HEXMAPCONST![8] > 0 Then TManufacturingLimit = TManufacturingLimit + HEXMAPCONST![8]
+   If HEXMAPCONST![9] > 0 Then TManufacturingLimit = TManufacturingLimit + HEXMAPCONST![9]
+   If HEXMAPCONST![10] > 0 Then TManufacturingLimit = TManufacturingLimit + HEXMAPCONST![10]
    TManufacturingLimit = TManufacturingLimit * VALID_CONST![LIMITS]
 End If
 
@@ -9453,6 +9541,9 @@ Case "Apiarism"
    TRIBE_STATUS = "Perform Apiarism"
    Call PERFORM_APIARISM
      
+Case "Apothecary"
+   TRIBE_STATUS = "Perform Apothecary"
+   Call PERFORM_APOTHECARY
 Case "ARMOUR"
    TRIBE_STATUS = "Perform Armour Making"
    If TSkillok(1) = "Y" Then
@@ -9691,59 +9782,66 @@ Case "Engineering"
    TAACTIVITY = TActivity
    TAITEM = TItem
    TADISTINCTION = TDistinction
-     
-   Call Get_Specialists_Info(TCLANNUMBER, TTRIBENUMBER, "ENGINEER")
+ ' Joint projects?
+    sCheckResult = isCheckBuildingEligibility(CONST_Tribes_Current_Hex, TOwning_Clan, TOwning_Tribe, TItem)
+    If sCheckResult = "True" Then
+        Call Get_Specialists_Info(TCLANNUMBER, TTRIBENUMBER, "ENGINEER")
    
-   If TSpecialists > NO_SPECIALISTS_FOUND Then
-      TSpecialists = NO_SPECIALISTS_FOUND
-   End If
+        If TSpecialists > NO_SPECIALISTS_FOUND Then
+            TSpecialists = NO_SPECIALISTS_FOUND
+        End If
   
-   Call UPDATE_TRIBES_SPECIALISTS(TCLANNUMBER, TTRIBENUMBER, "ENGINEER", "SPECIALISTS_USED", TSpecialists)
+        Call UPDATE_TRIBES_SPECIALISTS(TCLANNUMBER, TTRIBENUMBER, "ENGINEER", "SPECIALISTS_USED", TSpecialists)
 
    ' Actives & Specialists are combined prior to entering common function
-   TActives = TActives + TSpecialists
+        TActives = TActives + TSpecialists
    
-   If TJoint = "Y" Then
-      TATRIBE = TOwning_Tribe
-      TActives = (TActives * (10 / (10 + SKILL_SHORTAGE)))
-   ElseIf SKILL_SHORTAGE > 0 Then
-      If Right(TurnActOutPut, 3) = "^B " Then
-         Call Check_Turn_Output("", " Insufficient skill level for Engineering", "", 0, "NO")
-      Else
-         Call Check_Turn_Output(",", " Insufficient skill level for Engineering", "", 0, "NO")
-      End If
-   Else
-      TATRIBE = TTRIBENUMBER
-   End If
+        If TJoint = "Y" Then
+            TATRIBE = TOwning_Tribe
+            TActives = (TActives * (10 / (10 + SKILL_SHORTAGE)))
+        ElseIf SKILL_SHORTAGE > 0 Then
+            If Right(TurnActOutPut, 3) = "^B " Then
+                Call Check_Turn_Output("", " Insufficient skill level for Engineering", "", 0, "NO")
+            Else
+                Call Check_Turn_Output(",", " Insufficient skill level for Engineering", "", 0, "NO")
+            End If
+        Else
+            TATRIBE = TTRIBENUMBER
+        End If
   
-   If TItem = "MOAT" Or TItem = "DITCH" Then
-      ImplementsTable.index = "ACTIVITY"
-      ImplementsTable.MoveFirst
-      ImplementsTable.Seek "=", "ENGINEERING", "ALL"
-      IMPLEMENT_MODIFIER = ImplementsTable![Modifier]
+        If TItem = "MOAT" Or TItem = "DITCH" Then
+            ImplementsTable.index = "ACTIVITY"
+            ImplementsTable.MoveFirst
+            ImplementsTable.Seek "=", "ENGINEERING", "ALL"
+            IMPLEMENT_MODIFIER = ImplementsTable![Modifier]
       
-      Do While ImplementsTable![ACTIVITY] = TActivity
-         QUESTION = "How many " & ImplementsTable![IMPLEMENT]
-         QUESTION = QUESTION & " used for building " & TAITEM & "?"
-         Call Process_Implement_Usage(TAACTIVITY, ImplementsTable![IMPLEMENT], TActives, "YES")
-         ImplementsTable.MoveNext
-         If ImplementsTable.EOF Then
-            Exit Do
-         End If
-         IMPLEMENT_MODIFIER = ImplementsTable![Modifier]
-      Loop
+            Do While ImplementsTable![ACTIVITY] = TActivity
+                QUESTION = "How many " & ImplementsTable![IMPLEMENT]
+                QUESTION = QUESTION & " used for building " & TAITEM & "?"
+                Call Process_Implement_Usage(TAACTIVITY, ImplementsTable![IMPLEMENT], TActives, "YES")
+                ImplementsTable.MoveNext
+                If ImplementsTable.EOF Then
+                    Exit Do
+                End If
+                IMPLEMENT_MODIFIER = ImplementsTable![Modifier]
+            Loop
       
-      ImplementsTable.index = "PRIMARYKEY"
-      ImplementsTable.MoveFirst
-   Else
-      Call Process_Implement_Usage(TActivity, "ALL", TActives, "NO")
-   End If
+            ImplementsTable.index = "PRIMARYKEY"
+            ImplementsTable.MoveFirst
+        Else
+            Call Process_Implement_Usage(TActivity, "ALL", TActives, "NO")
+        End If
      
    ' Allow for specialists double benefit
-   TActives = TActives + TSpecialists
+        TActives = TActives + TSpecialists
    
-   Call Calc_Engineering(TACLAN, TATRIBE, GOODS_TRIBE, TAACTIVITY, TAITEM, TADISTINCTION, TActives)
-   
+        Call Calc_Engineering(TACLAN, TATRIBE, GOODS_TRIBE, TAACTIVITY, TAITEM, TADISTINCTION, TActives)
+    Else
+        Call Check_Turn_Output(",", sCheckResult, "", 0, "NO")
+        Msg = "The Clan was " & TCLANNUMBER & " The Tribe was " & TTRIBENUMBER
+        Msg = Msg & Chr(13) & Chr(10) & sCheckResult
+        MsgBox (Msg)
+    End If
 
 Case "EXCAVATION"
    TRIBE_STATUS = "Perform Excavation"
@@ -10217,52 +10315,64 @@ Case "PEELING"
    End If
 
 Case "Plowing"
-   TRIBE_STATUS = "Perform Plowing"
-   ACRES_PLOWED = 0
+   If TRIBES_TERRAIN = "PRAIRIE" Or TRIBES_TERRAIN = "GRASSY HILLS" Then
+    If CheckFarmingEligibility(Tribes_Current_Hex, TCLANNUMBER, TTRIBENUMBER) = "TRUE" Then
+   
+        TRIBE_STATUS = "Perform Plowing"
+        ACRES_PLOWED = 0
       
-  ' get the number of specialists
+        ' get the number of specialists
   
-   Call Get_Specialists_Info(TCLANNUMBER, TTRIBENUMBER, "FARMER")
+        Call Get_Specialists_Info(TCLANNUMBER, TTRIBENUMBER, "FARMER")
    
-   If TSpecialists > FARMER_FOUND Then
-      TSpecialists = FARMER_FOUND
-   End If
+        If TSpecialists > FARMER_FOUND Then
+            TSpecialists = FARMER_FOUND
+        End If
   
-   Call UPDATE_TRIBES_SPECIALISTS(TCLANNUMBER, TTRIBENUMBER, "FARMER", "SPECIALISTS_USED", TSpecialists)
+        Call UPDATE_TRIBES_SPECIALISTS(TCLANNUMBER, TTRIBENUMBER, "FARMER", "SPECIALISTS_USED", TSpecialists)
 
-   ' Actives & Specialists are combined prior to entering common function
-   TActives = TActives + (TSpecialists * 2)
+        ' Actives & Specialists are combined prior to entering common function
+        TActives = TActives + (TSpecialists * 2)
 
-   Call Process_Implement_Usage("PLOWING", "ALL", ACRES_PLOWED, "YES")
-   ImplementsTable.index = "PRIMARYKEY"
-   ImplementsTable.MoveFirst
-   If FarmingTable.BOF Then
-      ' do nothing
-   Else
-      FarmingTable.MoveFirst
-   End If
-   FarmingTable.Seek "=", Tribes_Current_Hex, TCLANNUMBER, TTRIBENUMBER, Current_Turn, "PLOWED"
-   If FarmingTable.NoMatch Then
-      FarmingTable.AddNew
-      FarmingTable![HEXMAP] = Tribes_Current_Hex
-      FarmingTable![CLAN] = TCLANNUMBER
-      FarmingTable![TRIBE] = TTRIBENUMBER
-      FarmingTable![TURN] = Current_Turn
-      FarmingTable![ITEM] = "PLOWED"
-      FarmingTable![ITEM_NUMBER] = ACRES_PLOWED
-      FarmingTable.UPDATE
-   Else
-      FarmingTable.Edit
-      FarmingTable![ITEM_NUMBER] = ACRES_PLOWED
-      FarmingTable.UPDATE
-   End If
+        Call Process_Implement_Usage("PLOWING", "ALL", ACRES_PLOWED, "YES")
+        ImplementsTable.index = "PRIMARYKEY"
+        ImplementsTable.MoveFirst
+        If FarmingTable.BOF Then
+        ' do nothing
+        Else
+            FarmingTable.MoveFirst
+        End If
+        FarmingTable.Seek "=", Tribes_Current_Hex, TCLANNUMBER, TTRIBENUMBER, Current_Turn, "PLOWED"
+        If FarmingTable.NoMatch Then
+            FarmingTable.AddNew
+            FarmingTable![HEXMAP] = Tribes_Current_Hex
+            FarmingTable![CLAN] = TCLANNUMBER
+            FarmingTable![TRIBE] = TTRIBENUMBER
+            FarmingTable![TURN] = Current_Turn
+            FarmingTable![ITEM] = "PLOWED"
+            FarmingTable![ITEM_NUMBER] = ACRES_PLOWED
+            FarmingTable.UPDATE
+        Else
+            FarmingTable.Edit
+            FarmingTable![ITEM_NUMBER] = ACRES_PLOWED
+            FarmingTable.UPDATE
+        End If
      
-   If Right(TurnActOutPut, 3) = "^B " Then
-      Call Check_Turn_Output(" Plowed ", " acres ", "", ACRES_PLOWED, "NO")
-   Else
-      Call Check_Turn_Output(", Plowed ", " acres ", "", ACRES_PLOWED, "NO")
-   End If
+        If Right(TurnActOutPut, 3) = "^B " Then
+            Call Check_Turn_Output(" Plowed ", " acres ", "", ACRES_PLOWED, "NO")
+        Else
+            Call Check_Turn_Output(", Plowed ", " acres ", "", ACRES_PLOWED, "NO")
    
+        End If
+    Else
+        Call Check_Turn_Output(", Can't plow without nearby village ", " ", "", 0, "NO")
+    End If
+   Else
+    Call Check_Turn_Output(", Can't plow ", TRIBES_TERRAIN, "", 0, "NO")
+        Msg = Msg & "The Clan was " & TCLANNUMBER & " The Tribe was " & TTRIBENUMBER
+        Msg = Msg & Chr(13) & Chr(10) & " This location is not suitable for plowing" 'CheckFarmingEligibility
+        MsgBox (Msg)
+   End If
 Case "POLITICS"
    TRIBE_STATUS = "Perform Pacification"
    ' PERFORMED IN FINAL ACTIVITIES
@@ -10538,8 +10648,8 @@ Case "SHEARING"
    Else
       TNumItems = TActives * 10
    End If
-   ' sheared goat * 25 = cotton
-   Number_Found = TNumItems * 25
+   ' sheared goat * 15 = cotton
+   Number_Found = TNumItems * 15
    If Left(Current_Turn, 2) = "06" Then
       Call UPDATE_TRIBES_GOODS_TABLES(TCLANNUMBER, GOODS_TRIBE, "COTTON", "ADD", Number_Found)
    ElseIf Left(Current_Turn, 2) = "12" Then
@@ -11368,16 +11478,24 @@ Else
      GOODS_TRIBE = TTRIBENUMBER
   End If
 
-  Tribes_Current_Hex = TRIBESINFO![Current Hex]
-  Meeting_House_Hex = TRIBESINFO![Current Hex]
+  Tribes_Current_Hex = TRIBESINFO![CURRENT HEX]
+  Meeting_House_Hex = TRIBESINFO![CURRENT HEX]
   
   TRIBESINFO.MoveFirst
   TRIBESINFO.Seek "=", TCLANNUMBER, GOODS_TRIBE
-  Goods_Tribes_Current_Hex = TRIBESINFO![Current Hex]
+  Goods_Tribes_Current_Hex = TRIBESINFO![CURRENT HEX]
   
   TRIBESINFO.MoveFirst
   TRIBESINFO.Seek "=", TOwning_Clan, TOwning_Tribe
-  CONST_Tribes_Current_Hex = TRIBESINFO![Current Hex]
+  CONST_Tribes_Current_Hex = TRIBESINFO![CURRENT HEX]
+  
+ ' If Not Tribes_Current_Hex = CONST_Tribes_Current_Hex Then
+ '       Msg = "Clan : " & TCLANNUMBER & " Party : " & TTRIBENUMBER & " " & LINEFEED
+ '       Msg = Msg & " OWNER_TRIBE " & TOwning_Tribe & " is not located in the same hex."
+ '       MsgBox (Msg)
+ '       TurnActOutPut = TurnActOutPut & TTRIBENUMBER & " OWNING_TRIBE was invalid (not located at the same place)  and activity was not processed, "
+ '       INVALID_TRIBE = "Y"
+ ' End If
   
   TRIBESINFO.MoveFirst
   TRIBESINFO.Seek "=", TCLANNUMBER, TTRIBENUMBER
@@ -11635,8 +11753,10 @@ TRIBE_STATUS = "CALC_BUILDING_ADDITION"
 
 Dim TINCREASE As Long
 Dim Only_Update_Field_1 As String
-
+Dim sResult As String
 TPOSITION = 0
+
+
 
 BRACKET = InStr(CONSTRUCTION, "(")
 If BRACKET > 0 Then
@@ -11645,9 +11765,19 @@ Else
    NEWCONSTRUCTION = CONSTRUCTION
 End If
 
-If NEWCONSTRUCTION = "WOODEN TOWER" Then
-   NEWCONSTRUCTION = "TOWER WOODEN"
+If isContainerBuilding(CONSTRUCTION) Then
+    sResult = sAddContainerBuilding(CONST_Tribes_Current_Hex, CONSTCLAN, CONSTTRIBE, NEWCONSTRUCTION)
+    Exit Function
 End If
+
+If Not sContainerBuilding(CONSTRUCTION) = "FALSE" Then
+    sResult = sAddInstallationConstruction(CONST_Tribes_Current_Hex, CONSTCLAN, CONSTTRIBE, NEWCONSTRUCTION, TBuilding)
+    Exit Function
+End If
+
+'If NEWCONSTRUCTION = "WOODEN TOWER" Then
+'   NEWCONSTRUCTION = "TOWER WOODEN"
+'End If
 
 HEXMAPCONST.index = "PRIMARYKEY"
 HEXMAPCONST.MoveFirst
@@ -11671,6 +11801,10 @@ VALID_CONST.Seek "=", NEWCONSTRUCTION
 If Not VALID_CONST.NoMatch Then
    If Left(CONSTRUCTION, 6) = "BURNER" Then
       HEXMAPCONST.index = "PRIMARYKEY"
+      HEXMAPCONST.MoveFirst
+      HEXMAPCONST.Seek "=", CONST_Tribes_Current_Hex, CONSTCLAN, CONSTTRIBE, NEWCONSTRUCTION
+      HEXMAPCONST.Delete
+      HEXMAPCONST.MoveFirst
       HEXMAPCONST.Seek "=", CONST_Tribes_Current_Hex, CONSTCLAN, CONSTTRIBE, "CHARHOUSE"
       HEXMAPCONST.Edit
       TPOSITION = TBuilding
@@ -11681,56 +11815,6 @@ If Not VALID_CONST.NoMatch Then
       Else
          HEXMAPCONST![KEEP] = HEXMAPCONST![KEEP] & ",1"
       End If
-
-   ElseIf Left(CONSTRUCTION, 4) = "OVEN" Then
-      HEXMAPCONST.index = "PRIMARYKEY"
-      HEXMAPCONST.MoveFirst
-      HEXMAPCONST.Seek "=", CONST_Tribes_Current_Hex, CONSTCLAN, CONSTTRIBE, NEWCONSTRUCTION
-      HEXMAPCONST.Delete
-      HEXMAPCONST.MoveFirst
-      HEXMAPCONST.Seek "=", CONST_Tribes_Current_Hex, CONSTCLAN, CONSTTRIBE, "Bakery"
-      HEXMAPCONST.Edit
-      TPOSITION = TBuilding
-   
-   ElseIf Left(CONSTRUCTION, 5) = "STOVE" Then
-      HEXMAPCONST.index = "PRIMARYKEY"
-      HEXMAPCONST.MoveFirst
-      HEXMAPCONST.Seek "=", CONST_Tribes_Current_Hex, CONSTCLAN, CONSTTRIBE, NEWCONSTRUCTION
-      HEXMAPCONST.Delete
-      HEXMAPCONST.MoveFirst
-      HEXMAPCONST.Seek "=", CONST_Tribes_Current_Hex, CONSTCLAN, CONSTTRIBE, "Bakery"
-      HEXMAPCONST.Edit
-      TPOSITION = TBuilding
-   
-   ElseIf Left(CONSTRUCTION, 5) = "STILL" Then
-      HEXMAPCONST.index = "PRIMARYKEY"
-      HEXMAPCONST.MoveFirst
-      HEXMAPCONST.Seek "=", CONST_Tribes_Current_Hex, CONSTCLAN, CONSTTRIBE, NEWCONSTRUCTION
-      HEXMAPCONST.Delete
-      HEXMAPCONST.MoveFirst
-      HEXMAPCONST.Seek "=", CONST_Tribes_Current_Hex, CONSTCLAN, CONSTTRIBE, "Distillery"
-      HEXMAPCONST.Edit
-      TPOSITION = TBuilding
-   
-   ElseIf Left(CONSTRUCTION, 7) = "SMELTER" Then
-      HEXMAPCONST.index = "PRIMARYKEY"
-      HEXMAPCONST.MoveFirst
-      HEXMAPCONST.Seek "=", CONST_Tribes_Current_Hex, CONSTCLAN, CONSTTRIBE, NEWCONSTRUCTION
-      HEXMAPCONST.Delete
-      HEXMAPCONST.MoveFirst
-      HEXMAPCONST.Seek "=", CONST_Tribes_Current_Hex, CONSTCLAN, CONSTTRIBE, "Refinery"
-      HEXMAPCONST.Edit
-      TPOSITION = TBuilding
- 
-   ElseIf Left(CONSTRUCTION, 4) = "KILN" Then
-      HEXMAPCONST.index = "PRIMARYKEY"
-      HEXMAPCONST.MoveFirst
-      HEXMAPCONST.Seek "=", CONST_Tribes_Current_Hex, CONSTCLAN, CONSTTRIBE, NEWCONSTRUCTION
-      HEXMAPCONST.Delete
-      HEXMAPCONST.MoveFirst
-      HEXMAPCONST.Seek "=", CONST_Tribes_Current_Hex, CONSTCLAN, CONSTTRIBE, "Brickwork"
-      HEXMAPCONST.Edit
-      TPOSITION = TBuilding
    
    ElseIf Left(CONSTRUCTION, 12) = "WOODEN TOWER" Then
       TPOSITION = 1
@@ -11853,12 +11937,7 @@ If TPOSITION > 0 Then
    ElseIf TPOSITION = 10 Then
       HEXMAPCONST![10] = HEXMAPCONST![10] + 1
    End If
-ElseIf NEWCONSTRUCTION = "BAKERY" And TDistinction = "NONE" Then
-   ' do nothing
-ElseIf NEWCONSTRUCTION = "BRICKWORK" And TDistinction = "NONE" Then
-   ' do nothing
-ElseIf NEWCONSTRUCTION = "REFINERY" And TDistinction = "NONE" Then
-   ' do nothing
+
 Else
 If VALID_CONST![Update_Field_1] = "Y" Then
    HEXMAPCONST![1] = HEXMAPCONST![1] + 1
@@ -12048,15 +12127,26 @@ TOTAL_WORKERS = 0
 CONSTRUCTION_TYPE = "ENG"
 NEW_CONSTRUCTION = "N"
 
+
+
+
 CONSTCLAN = TOwning_Clan
 CONSTTRIBE = TOwning_Tribe
 
 ' update turnactoutput
 If Len(TurnActOutPut) > 20 Then
-   TurnActOutPut = TurnActOutPut & ", " & TActives & " effective people worked on " & StrConv(ITEM, vbProperCase) & " using ("
+   TurnActOutPut = TurnActOutPut & ", " & TActives & " effective people worked on " & StrConv(ITEM, vbProperCase)
 Else
-   TurnActOutPut = TurnActOutPut & " " & TActives & " effective people worked on " & StrConv(ITEM, vbProperCase) & " using ("
+   TurnActOutPut = TurnActOutPut & " " & TActives & " effective people worked on " & StrConv(ITEM, vbProperCase)
 End If
+
+If Not CONSTTRIBE = TTRIBENUMBER Then
+   TurnActOutPut = TurnActOutPut & " for tribe " & " using ("
+Else
+   TurnActOutPut = TurnActOutPut & " using ("
+End If
+
+
 
 WORKCLAN = CLAN
 WORKTRIBE = TRIBE
@@ -14502,3 +14592,448 @@ ERR_Process_Clan_Research_Costs:
    Resume ERR_Process_Clan_Research_Costs_CLOSE
 
 End Function
+' Checks the presence of Meeting House at any of adjacent hexes. Returns TRUE or FALSE (AlexD 24.06.24)
+Public Function Look4AdjacentMH(sHex As String, sClan As String) As String
+ Dim ADJ_HEXES(6) As String
+ Dim i As Integer
+ ' Get adjacent hexes
+ ADJ_HEXES(1) = GET_MAP_NORTH(sHex)
+ ADJ_HEXES(2) = GET_MAP_NORTH_EAST(sHex)
+ ADJ_HEXES(3) = GET_MAP_SOUTH_EAST(sHex)
+ ADJ_HEXES(4) = GET_MAP_SOUTH(sHex)
+ ADJ_HEXES(5) = GET_MAP_SOUTH_WEST(sHex)
+ ADJ_HEXES(6) = GET_MAP_NORTH_WEST(sHex)
+ 
+ i = 1
+ Do Until i > 6
+        HEXMAPCONST.index = "FORTHKEY"
+        HEXMAPCONST.MoveFirst
+        HEXMAPCONST.Seek "=", ADJ_HEXES(i), sClan, "MEETING HOUSE"
+        If Not HEXMAPCONST.NoMatch Then
+                Look4AdjacentMH = "TRUE"
+                Exit Function
+        End If
+        i = i + 1
+ Loop
+ Look4AdjacentMH = "FALSE"
+End Function
+' Checks  Terrain and looks for nearby village Returns TRUE or FALSE (AlexD 27.06.24)
+Public Function CheckFarmingEligibility(sHex As String, sClan As String, sTribe As String) As String
+ Dim sGoodsTribe As String
+ 
+    CheckFarmingEligibility = "FALSE"
+    'If Not ((TRIBES_TERRAIN = "PRAIRIE") Or (TRIBES_TERRAIN = "GRASSY_HILLS")) Then
+    '    CheckFarmingEligibility = "FALSE"
+    '    Exit Function
+    'End If
+' Check location for being village
+    HEXMAPCONST.index = "FORTHKEY"
+    HEXMAPCONST.MoveFirst
+    HEXMAPCONST.Seek "=", sHex, sClan, "MEETING HOUSE"
+    If Not HEXMAPCONST.NoMatch Then
+        CheckFarmingEligibility = "TRUE"
+        Exit Function
+    End If
+' Look for GT
+    TRIBESINFO.MoveFirst
+    TRIBESINFO.Seek "=", sClan, sTribe
+    If IsNull(TRIBESINFO![GOODS TRIBE]) Then
+        CheckFarmingEligibility = "FALSE" '" Can't plow without nearby village"
+        Exit Function
+    Else
+
+    sGoodsTribe = TRIBESINFO![GOODS TRIBE]
+    TRIBESINFO.MoveFirst
+    TRIBESINFO.Seek "=", sClan, sGoodsTribe
+    If TRIBESINFO.NoMatch Then 'GT not found
+            CheckFarmingEligibility = "FALSE"
+            Exit Function
+    End If
+    
+ ' Checks that GT has MH
+        
+        
+        
+        HEXMAPCONST.index = "PRIMARYKEY"
+        HEXMAPCONST.MoveFirst
+        HEXMAPCONST.Seek "=", TRIBESINFO![CURRENT HEX], sClan, sGoodsTribe, "MEETING HOUSE"
+        If Not HEXMAPCONST.NoMatch Then
+            CheckFarmingEligibility = "TRUE"
+            Exit Function
+        Else
+            CheckFarmingEligibility = "FALSE"
+            Exit Function
+        End If
+    End If
+End Function
+
+' Checks Building for being "Container building" (AlexD 01.07.24)
+Public Function isContainerBuilding(sBuilding As String) As String
+    If sBuilding = "Refinery" Then
+        isContainerBuilding = True
+        Exit Function
+    End If
+    If sBuilding = "Charhouse" Then
+        isContainerBuilding = True
+        Exit Function
+   End If
+    If sBuilding = "Bakery" Then
+        isContainerBuilding = True
+        Exit Function
+   End If
+    If sBuilding = "Distillery" Then
+        isContainerBuilding = True
+        Exit Function
+   End If
+    If sBuilding = "Brickwork" Then
+        isContainerBuilding = True
+        Exit Function
+   End If
+   isContainerBuilding = False
+End Function
+
+' Checks Building for being "Installation Construction" (AlexD 04.07.24) Returns container name or FALSE
+Public Function sContainerBuilding(sBuilding As String) As String
+    If sBuilding = "BURNER" Then
+        sContainerBuilding = "CHARHOUSE"
+        Exit Function
+    End If
+    If sBuilding = "OVEN" Then
+        sContainerBuilding = "Bakery"
+        Exit Function
+   End If
+    ' If sBuilding = "STOVE" Then
+    '    sContainerBuilding = "Bakery"
+    '    Exit Function
+    'End If
+    If sBuilding = "STILL" Then
+        sContainerBuilding = "Distillery"
+        Exit Function
+   End If
+    If sBuilding = "KILN" Then
+        sContainerBuilding = "Brickwork"
+        Exit Function
+   End If
+    If sBuilding = "SMELTER" Then
+        sContainerBuilding = "Refinery"
+        Exit Function
+   End If
+   sContainerBuilding = "FALSE"
+End Function
+
+
+' Add Container Building (like Refinery) to HEXMAPCONST table.
+' First building adds record to HEXMAPCONST table.
+' All the next are marked by setting [1-10] slot values to 0 from -1
+' AlexD 07.07.24
+Public Function sAddContainerBuilding(sHex As String, sClan As String, sTribe As String, sBuilding As String) As String
+
+Dim numSlotIndex As Long
+sAddContainerBuilding = "DONE"
+
+HEXMAPCONST.index = "PRIMARYKEY"
+HEXMAPCONST.MoveFirst
+HEXMAPCONST.Seek "=", sHex, sClan, sTribe, sBuilding
+
+
+If HEXMAPCONST.NoMatch Then
+   HEXMAPCONST.AddNew
+   HEXMAPCONST![MAP] = sHex
+   HEXMAPCONST![CLAN] = sClan
+   HEXMAPCONST![TRIBE] = sTribe
+   HEXMAPCONST![CONSTRUCTION] = sBuilding
+   numSlotIndex = 2 ' HEXMAPCONST[1] should be left 0 (that means structure is present)
+   Do While numSlotIndex <= 10
+        HEXMAPCONST(CStr(numSlotIndex)) = -1
+        numSlotIndex = numSlotIndex + 1
+   Loop
+    HEXMAPCONST.UPDATE
+    sAddContainerBuilding = "ADDED"
+    Exit Function
+Else
+    HEXMAPCONST.Edit
+   numSlotIndex = 1
+   Do While numSlotIndex <= 10
+        If HEXMAPCONST(CStr(numSlotIndex)) = -1 Then
+            HEXMAPCONST(CStr(numSlotIndex)) = 0
+            sAddContainerBuilding = "ADDED"
+            HEXMAPCONST.UPDATE
+            Exit Function
+        End If
+        numSlotIndex = numSlotIndex + 1
+   Loop
+sAddContainerBuilding = "MAX"
+End If
+HEXMAPCONST.UPDATE
+End Function
+' Add Installation Construction (like Smelter) to HEXMAPCONST table.
+' Installation is added by advancing counter of slot  [1-10] at position defined by numPosition
+' If specified slot is full (counter = 100) or contained doesn't exist (counter = -1)
+' function vill try to find applicable slot
+' AlexD 07.07.24
+Public Function sAddInstallationConstruction(sHex As String, sClan As String, sTribe As String, sBuilding As String, numPosition As Long) As String
+Dim numSlotIndex As Long
+Dim sContainer As String
+sAddInstallationConstruction = "DONE"
+sContainer = sContainerBuilding(sBuilding)
+If sContainer = "FALSE" Then
+    sAddInstallationConstruction = "FALSE"
+    Exit Function
+End If
+If numPosition = 0 Then numPosition = 1
+
+HEXMAPCONST.index = "PRIMARYKEY"
+HEXMAPCONST.MoveFirst
+HEXMAPCONST.Seek "=", sHex, sClan, sTribe, sContainer
+If HEXMAPCONST.NoMatch Then
+    sAddInstallationConstruction = "FALSE"
+    Exit Function
+End If
+HEXMAPCONST.Edit
+If HEXMAPCONST(CStr(numPosition)) > -1 And HEXMAPCONST(CStr(numPosition)) < 100 Then
+    HEXMAPCONST(CStr(numPosition)) = HEXMAPCONST(CStr(numPosition)) + 1
+    sAddInstallationConstruction = "ADDED"
+    HEXMAPCONST.UPDATE
+    Exit Function
+End If
+    numSlotIndex = 1
+   Do While numSlotIndex <= 10
+    If HEXMAPCONST(CStr(numSlotIndex)) > -1 And HEXMAPCONST(CStr(numSlotIndex)) < 100 Then
+        HEXMAPCONST(CStr(numSlotIndex)) = HEXMAPCONST(CStr(numSlotIndex)) + 1
+        sAddInstallationConstruction = "ADDED"
+        HEXMAPCONST.UPDATE
+        Exit Function
+    End If
+        numSlotIndex = numSlotIndex + 1
+   Loop
+
+HEXMAPCONST.UPDATE
+sAddInstallationConstruction = "MAX"
+End Function
+
+' Checks if it is possible to build tis building  (AlexD 04.07.24)
+Public Function isCheckBuildingEligibility(sHex As String, sClan As String, sTribe As String, sBuilding As String) As String
+Dim sContainer As String
+Dim numSlotIndex As Long
+' If this is defensive building you can build it anywhere
+    If sBuilding = "10' STONE WALL" Or _
+       sBuilding = "15' STONE WALL" Or _
+       sBuilding = "20' STONE WALL" Or _
+       sBuilding = "25' STONE WALL" Or _
+       sBuilding = "30' STONE WALL" Or _
+       sBuilding = "DITCH" Or _
+       sBuilding = "MOAT" Or _
+       sBuilding = "PALISADE" Or _
+       sBuilding = "WOODEN TOWER" Or _
+       sBuilding = "STONE TOWER" Or _
+       sBuilding = "10' STONE WALL" Then
+            isCheckBuildingEligibility = "True"
+            Exit Function
+        Else
+            MsgBox "No match found!"
+        End If
+
+' if building is MH check there is none
+    If sBuilding = "MEETING HOUSE" Then
+        HEXMAPCONST.MoveFirst
+        HEXMAPCONST.index = "TERTIARYKEY"
+        HEXMAPCONST.Seek "=", sHex, "Meeting House"
+        If HEXMAPCONST.NoMatch Then
+            isCheckBuildingEligibility = "True"
+            HEXMAPCONST.index = "PRIMARYKEY"
+            Exit Function
+        Else
+            isCheckBuildingEligibility = " MH is already exist "
+            HEXMAPCONST.index = "PRIMARYKEY"
+            Exit Function
+        End If
+    End If
+' Check that there is MH (not necessary belonging to your Clan)
+    HEXMAPCONST.index = "TERTIARYKEY"
+    HEXMAPCONST.MoveFirst
+    HEXMAPCONST.Seek "=", sHex, "Meeting House"
+    If HEXMAPCONST.NoMatch Then
+        isCheckBuildingEligibility = " Can't build " & sBuilding & ": No MH "
+        HEXMAPCONST.index = "PRIMARYKEY"
+        Exit Function
+    End If
+' If building is a container you cant build more than 10 of them
+    If isContainerBuilding(sBuilding) Then  'search for it
+        HEXMAPCONST.index = "TERTIARYKEY"
+        HEXMAPCONST.MoveFirst
+        HEXMAPCONST.Seek "=", sHex, sBuilding
+        If HEXMAPCONST.NoMatch Then
+            isCheckBuildingEligibility = "True"
+            HEXMAPCONST.index = "PRIMARYKEY"
+            Exit Function
+        End If
+        If HEXMAPCONST![10] = -1 Then
+            isCheckBuildingEligibility = "True"
+            HEXMAPCONST.index = "PRIMARYKEY"
+            Exit Function
+        End If
+        isCheckBuildingEligibility = " Maximum number of " & sBuilding & " already exist "
+        Exit Function
+    End If
+    HEXMAPCONST.index = "PRIMARYKEY"
+' if building is installation you can build it only if correspondent container building is exist
+    sContainer = sContainerBuilding(sBuilding)
+    If Not sContainer = "FALSE" Then
+        HEXMAPCONST.index = "PRIMARYKEY"
+        HEXMAPCONST.MoveFirst
+        HEXMAPCONST.Seek "=", sHex, sClan, sTribe, sContainer
+        If HEXMAPCONST.NoMatch Then
+            isCheckBuildingEligibility = "No " & sContainer & " to build " & sBuilding
+            HEXMAPCONST.index = "PRIMARYKEY"
+            Exit Function
+        End If
+
+' And there are no more than 100 smelters in it
+        numSlotIndex = 1
+        Do While numSlotIndex <= 10
+            If HEXMAPCONST(CStr(numSlotIndex)) < 100 Then
+                isCheckBuildingEligibility = "True"
+                Exit Function
+            End If
+            numSlotIndex = numSlotIndex + 1
+        Loop
+        isCheckBuildingEligibility = " Maximum number of " & sBuilding & " is reached "
+        Exit Function
+End If
+isCheckBuildingEligibility = "True"
+End Function
+
+' Calculate Mouths of unit (without animals)
+' AlexD 27.07.24
+Public Function numCalcHumanMouths(sClan As String, sTribe As String) As Long
+   TRIBESINFO.MoveFirst
+   TRIBESINFO.Seek "=", sClan, sTribe
+   numCalcHumanMouths = 0
+  
+   If (TRIBESINFO!WARRIORS > 0) Then numCalcHumanMouths = numCalcHumanMouths + TRIBESINFO!WARRIORS
+   If (TRIBESINFO!ACTIVES > 0) Then numCalcHumanMouths = numCalcHumanMouths + TRIBESINFO!ACTIVES
+   If (TRIBESINFO!INACTIVES > 0) Then numCalcHumanMouths = numCalcHumanMouths + TRIBESINFO!INACTIVES
+   If (TRIBESINFO!SLAVE > 0) Then numCalcHumanMouths = numCalcHumanMouths + TRIBESINFO!SLAVE
+   If (TRIBESINFO!MERCENARIES > 0) Then numCalcHumanMouths = numCalcHumanMouths + TRIBESINFO!MERCENARIES
+   
+End Function
+
+' Calculate total Mouths of GT of current unit (includes  animals and all dependent units)
+' AlexD 27.07.24
+Public Function numCalcTotalMouths(sClan As String, sTribe As String) As Long
+Dim GOODSTRIBE As String
+    numCalcTotalMouths = 0
+    TRIBESINFO.MoveFirst
+    TRIBESINFO.Seek "=", sClan, sTribe
+    If TRIBESINFO.NoMatch Then
+            Msg = Msg & "The Clan was " & sClan & " The Tribe was " & sTribe
+            Msg = Msg & Chr(13) & Chr(10) & numCalcTotalMouths & " unit not found."
+            MsgBox (Msg)
+            Exit Function
+    End If
+   
+   
+    GOODSTRIBE = TRIBESINFO![GOODS TRIBE]
+   ' Add all animals of GT
+    TRIBESGOODS.MoveFirst
+    TRIBESGOODS.Seek "=", sClan, GOODSTRIBE, "ANIMAL", "HERDING DOG"
+    If Not TRIBESGOODS.NoMatch Then
+        numCalcTotalMouths = numCalcTotalMouths + CLng(TRIBESGOODS![ITEM_NUMBER] / 2)
+    End If
+   
+    TRIBESGOODS.MoveFirst
+    TRIBESGOODS.Seek "=", sClan, GOODSTRIBE, "ANIMAL", "WARDOG"
+    If Not TRIBESGOODS.NoMatch Then
+        numCalcTotalMouths = numCalcTotalMouths + CLng(TRIBESGOODS![ITEM_NUMBER] / 2)
+    End If
+
+   ' find all units with this GT
+   Do While TRIBESINFO![CLAN] = sClan ' All units of this clan
+        If TRIBESINFO![GOODS TRIBE] = GOODSTRIBE Then
+            numCalcTotalMouths = numCalcTotalMouths + numCalcHumanMouths(TRIBESINFO![CLAN], TRIBESINFO![TRIBE])
+        End If
+        TRIBESINFO.MoveNext
+        If TRIBESINFO.EOF Then
+            Exit Do
+        End If
+ 
+    Loop
+End Function
+
+
+' Calculate total amount of unstorable food of unit (Fish,Milk,Bread)
+' AlexD 27.07.24
+Public Function numCalcTotalUnstorableFood(sClan As String, sTribe As String) As Long
+Dim GOODSTRIBE As String
+
+    numCalcTotalUnstorableFood = 0
+    TRIBESINFO.MoveFirst
+    TRIBESINFO.Seek "=", sClan, sTribe
+    If TRIBESINFO.NoMatch Then
+            Msg = Msg & "The Clan was " & sClan & " The Tribe was " & sTribe
+            Msg = Msg & Chr(13) & Chr(10) & numCalcTotalUnstorableFood & " unit not found."
+            MsgBox (Msg)
+            Exit Function
+    End If
+    GOODSTRIBE = TRIBESINFO![GOODS TRIBE]
+   ' Add milk fich and bread of GT
+    TRIBESGOODS.MoveFirst
+    TRIBESGOODS.Seek "=", sClan, GOODSTRIBE, "RAW", "MILK"
+    If Not TRIBESGOODS.NoMatch Then
+        numCalcTotalUnstorableFood = numCalcTotalUnstorableFood + TRIBESGOODS![ITEM_NUMBER]
+    End If
+    TRIBESGOODS.MoveFirst
+    TRIBESGOODS.Seek "=", sClan, GOODSTRIBE, "RAW", "FISH"
+    If Not TRIBESGOODS.NoMatch Then
+        numCalcTotalUnstorableFood = numCalcTotalUnstorableFood + TRIBESGOODS![ITEM_NUMBER]
+    End If
+    TRIBESGOODS.MoveFirst
+    TRIBESGOODS.Seek "=", sClan, GOODSTRIBE, "FINISHED", "BREAD"
+    If Not TRIBESGOODS.NoMatch Then
+        numCalcTotalUnstorableFood = numCalcTotalUnstorableFood + TRIBESGOODS![ITEM_NUMBER]
+    End If
+  
+End Function
+
+
+' Calculates fish excess and salts it. Returns amount of  fish that remained unsalted
+' AlexD 30.07.24
+Public Function processSaltingExtraFish(sClan As String, sTribe As String, numFish As Long) As Long
+Dim TOTAL_SALT As Long
+Dim fishDemand As Long
+Dim fishToSalt As Long
+Dim maxFishToSalt As Long
+Dim saltToUse As Long
+' check for salt, if have salt then excess of fish may be salted.
+TOTAL_SALT = GET_TRIBES_GOOD_QUANTITY(TCLANNUMBER, sTribe, "SALT")
+fishDemand = numCalcTotalMouths(TCLANNUMBER, sTribe) - numCalcTotalUnstorableFood(TCLANNUMBER, sTribe)
+If fishDemand < 0 Then
+    fishDemand = 0
+End If
+
+'If TOTAL_SALT * 10 >= 1000 * SALTING_LEVEL Then
+'    maxFishToSalt = 1000 * SALTING_LEVEL
+'Else
+    maxFishToSalt = TOTAL_SALT * 10
+'End If
+
+
+If TFishing >= fishDemand Then
+    If TFishing - fishDemand <= maxFishToSalt Then ' salt it all
+        fishToSalt = TFishing - fishDemand
+    Else ' salt maxFishToSalt of fish
+        fishToSalt = maxFishToSalt
+    End If
+        processSaltingExtraFish = TFishing - fishToSalt
+        saltToUse = CLng(fishToSalt / 10)
+        Call UPDATE_TRIBES_GOODS_TABLES(TCLANNUMBER, GOODS_TRIBE, "SALT", "SUBTRACT", saltToUse)
+'        Call UPDATE_TRIBES_GOODS_TABLES(TCLANNUMBER, GOODS_TRIBE, "FISH", "SUBTRACT", fishToSalt)
+        Call UPDATE_TRIBES_GOODS_TABLES(TCLANNUMBER, GOODS_TRIBE, "PROVS", "ADD", fishToSalt)
+        Call Check_Turn_Output(" ", " and salted", " provs", fishToSalt, "NO")
+        'TempOutput = TempOutput & ")"
+        TurnActOutPut = TurnActOutPut & " (using " & fishToSalt & " fish and " & saltToUse & " salt)"
+Else ' Nothing to salt
+    processSaltingExtraFish = TFishing
+End If
+End Function
+ 

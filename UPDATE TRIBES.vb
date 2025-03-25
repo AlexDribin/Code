@@ -5,18 +5,24 @@ Option Explicit
 '*===============================================================================*'
 '*****                      MAINTENANCE LOG                                  *****'
 '*-------------------------------------------------------------------------------*'
+'*                           VERSION 3.1t                                         *'
+'*-------------------------------------------------------------------------------*'
 '**   DATE    *  DESCRIPTION                                                    **'
 '*-------------------------------------------------------------------------------*'
 '** 17/01/96  *  Insert Maintenance Log                                         **'
 '** 28/01/96  *  Add function for updating Activities Screen                    **'
+'** 20/01/25  *  Fixed human capacity bug (Alex D)                              **'
+'** 22/01/25  *  Fixed  Animal/wagon capacity calculation (Alex D)              **'
+'** 10/09/24  *  Empty passenges spaces on fleet calculation fixed (AlexD)      **'
+'** 06/03/25  *  Fixed calculation of mounted capacity (AlexD)                  **'
 '*===============================================================================*'
- 
+Global ShowUpdateTribesVersion As Long
 
 Function UPDATE_ACTIVITIES()
 Dim ActivitySeqTable As Recordset
 ReDim Description(9) As String
 ReDim NUMBER(9) As Double
-Dim COUNTER As Long
+Dim Counter As Long
 
 Set TVWKSPACE = DBEngine.Workspaces(0)
 
@@ -112,34 +118,34 @@ Else
    ActivitiesTable.UPDATE
 End If
 
-COUNTER = 1
+Counter = 1
 
-Do Until COUNTER > 9
-  If Not IsNull(Description(COUNTER)) And Not (Description(COUNTER) = "") Then
+Do Until Counter > 9
+  If Not IsNull(Description(Counter)) And Not (Description(Counter) = "") Then
      activitytable.MoveFirst
-     activitytable.Seek "=", MYFORM![ACTIVITY TYPE], MYFORM![ITEM TYPE], MYFORM![TYPE], Description(COUNTER)
+     activitytable.Seek "=", MYFORM![ACTIVITY TYPE], MYFORM![ITEM TYPE], MYFORM![TYPE], Description(Counter)
      If activitytable.NoMatch Then
         VALIDGOODS.MoveFirst
-        VALIDGOODS.Seek "=", Description(COUNTER)
+        VALIDGOODS.Seek "=", Description(Counter)
         If VALIDGOODS.NoMatch Then
-           Msg = Description(COUNTER) & " is not a valid good.  Please check valid goods table."
+           Msg = Description(Counter) & " is not a valid good.  Please check valid goods table."
            MsgBox (Msg)
         Else
            activitytable.AddNew
            activitytable![ACTIVITY] = MYFORM![ACTIVITY TYPE]
            activitytable![ITEM] = MYFORM![ITEM TYPE]
            activitytable![TYPE] = MYFORM![TYPE]
-           activitytable![GOOD] = Description(COUNTER)
-           activitytable![NUMBER] = NUMBER(COUNTER)
+           activitytable![GOOD] = Description(Counter)
+           activitytable![NUMBER] = NUMBER(Counter)
            activitytable.UPDATE
         End If
      Else
         activitytable.Edit
-        activitytable![NUMBER] = NUMBER(COUNTER)
+        activitytable![NUMBER] = NUMBER(Counter)
         activitytable.UPDATE
      End If
   End If
-  COUNTER = COUNTER + 1
+  Counter = Counter + 1
 
 Loop
 
@@ -308,7 +314,7 @@ Dim CLANNUMBER As String
 Dim TRIBENUMBER As String
 ReDim Description(60) As String
 ReDim NUMBER(60) As Long
-Dim COUNTER As Long
+Dim Counter As Long
 Dim ITEM_TYPE As String
 
 Set TVWKSPACE = DBEngine.Workspaces(0)
@@ -453,25 +459,25 @@ If ITEM_TYPE = "MODIFIERS" Then
    Set TribesModifiers = TVDBGM.OpenRecordset("MODIFIERS")
    TribesModifiers.index = "PRIMARYKEY"
 
-   COUNTER = 1
+   Counter = 1
 
-   Do Until COUNTER > 60
-     If Not IsNull(Description(COUNTER)) And Not (Description(COUNTER) = "") Then
+   Do Until Counter > 60
+     If Not IsNull(Description(Counter)) And Not (Description(Counter) = "") Then
         TribesModifiers.MoveFirst
-        TribesModifiers.Seek "=", MYFORM![TRIBENUMBER], Description(COUNTER)
+        TribesModifiers.Seek "=", MYFORM![TRIBENUMBER], Description(Counter)
         If TribesModifiers.NoMatch Then
            TribesModifiers.AddNew
            TribesModifiers![TRIBE] = MYFORM![TRIBENUMBER]
-           TribesModifiers![Modifier] = Description(COUNTER)
-           TribesModifiers![AMOUNT] = NUMBER(COUNTER)
+           TribesModifiers![Modifier] = Description(Counter)
+           TribesModifiers![AMOUNT] = NUMBER(Counter)
            TribesModifiers.UPDATE
         Else
            TribesModifiers.Edit
-           TribesModifiers![AMOUNT] = NUMBER(COUNTER)
+           TribesModifiers![AMOUNT] = NUMBER(Counter)
            TribesModifiers.UPDATE
         End If
      End If
-     COUNTER = COUNTER + 1
+     Counter = Counter + 1
 
    Loop
 
@@ -486,34 +492,34 @@ Else
    Set VALIDGOODS = TVDBGM.OpenRecordset("VALID_GOODS")
    VALIDGOODS.index = "primarykey"
   
-   COUNTER = 1
+   Counter = 1
 
-   Do Until COUNTER > 60
-     If Not IsNull(Description(COUNTER)) And Not (Description(COUNTER) = "") Then
+   Do Until Counter > 60
+     If Not IsNull(Description(Counter)) And Not (Description(Counter) = "") Then
         TRIBESGOODS.MoveFirst
-        TRIBESGOODS.Seek "=", MYFORM![CLANNUMBER], MYFORM![TRIBENUMBER], MYFORM![ITEM_TYPE], Description(COUNTER)
+        TRIBESGOODS.Seek "=", MYFORM![CLANNUMBER], MYFORM![TRIBENUMBER], MYFORM![ITEM_TYPE], Description(Counter)
         If TRIBESGOODS.NoMatch Then
            VALIDGOODS.MoveFirst
-           VALIDGOODS.Seek "=", Description(COUNTER)
+           VALIDGOODS.Seek "=", Description(Counter)
            If VALIDGOODS.NoMatch Then
-              Msg = Description(COUNTER) & " is not a valid good.  Please check valid goods table."
+              Msg = Description(Counter) & " is not a valid good.  Please check valid goods table."
               MsgBox (Msg)
            Else
               TRIBESGOODS.AddNew
               TRIBESGOODS![CLAN] = MYFORM![CLANNUMBER]
               TRIBESGOODS![TRIBE] = MYFORM![TRIBENUMBER]
               TRIBESGOODS![ITEM_TYPE] = MYFORM![ITEM_TYPE]
-              TRIBESGOODS![ITEM] = Description(COUNTER)
-              TRIBESGOODS![ITEM_NUMBER] = NUMBER(COUNTER)
+              TRIBESGOODS![ITEM] = Description(Counter)
+              TRIBESGOODS![ITEM_NUMBER] = NUMBER(Counter)
               TRIBESGOODS.UPDATE
            End If
         Else
            TRIBESGOODS.Edit
-           TRIBESGOODS![ITEM_NUMBER] = NUMBER(COUNTER)
+           TRIBESGOODS![ITEM_NUMBER] = NUMBER(Counter)
            TRIBESGOODS.UPDATE
         End If
      End If
-     COUNTER = COUNTER + 1
+     Counter = Counter + 1
 
    Loop
 
@@ -581,13 +587,25 @@ Dim TotalSaddleBags As Long
 Dim TotalWagons As Long
 Dim TotalScouts As Long
 Dim TotalBackpacksUsed As Long
+Dim CamelCapacity As Long
+Dim HorseCapacity As Long
+Dim ElephantCapacity As Long
 Dim Required_Crew As Long
 Dim Max_Crew As Long
 Dim AVAILABLE_PEOPLE As Long
 Dim EXCESS_PEOPLE As Long
 Dim Wagons_Carry As Long
+Dim WagonsNumber As Long
 Dim MSG1 As String
 Dim MSG2 As String
+
+
+
+If (ShowUpdateTribesVersion = 0) Then
+   MSG1 = "UPDATE TRIBES module version is 3.1t "
+   Response = MsgBox(MSG1, True)
+   ShowUpdateTribesVersion = 1
+End If
 
 Set TVWKSPACE = DBEngine.Workspaces(0)
 Set TVDB = TVWKSPACE.OpenDatabase("tvdatapr.accdb")
@@ -614,6 +632,7 @@ Forms![TRIBEVIBES].Repaint
 ' Number of Saddlebags @ 100lbs
 
 CAPACITY = 0
+Walking_Capacity = 0
 
 If Capacity_Type = "Group" Then
    Set TRIBESTABLE = TVDBGM.OpenRecordset("TRIBES_GENERAL_INFO")
@@ -658,8 +677,9 @@ Else
 End If
 
 If Not VALIDGOODS.NoMatch Then
-   Walking_Capacity = (TotalPeople - (TotalPalaquins * 4)) * VALIDGOODS![CARRIES]
+   Walking_Capacity = Walking_Capacity + (TotalPeople - (TotalPalaquins * 4)) * 30 + TotalPalaquins * VALIDGOODS![CARRIES]
 Else
+   Walking_Capacity = Walking_Capacity + TotalPeople * 30
    MSG1 = "Palaquins are not a Valid_Good"
    MSG2 = "Please add it in"
    Response = MsgBox(MSG1 & MSG2, True)
@@ -692,32 +712,45 @@ Else
    TotalWagons = 0
 End If
 
+WagonsNumber = TotalWagons
+
+VALIDGOODS.MoveFirst
+VALIDGOODS.Seek "=", "WAGON"
+If Not VALIDGOODS.NoMatch Then
+      Wagons_Carry = VALIDGOODS![CARRIES]
+End If
+
 TRIBESGOODS.MoveFirst
 TRIBESGOODS.Seek "=", DC_CLANNUMBER, DC_TRIBENUMBER, "ANIMAL", "ELEPHANT"
 VALIDGOODS.MoveFirst
 VALIDGOODS.Seek "=", "ELEPHANT"
 
 If Not VALIDGOODS.NoMatch Then
+   ElephantCapacity = VALIDGOODS![CARRIES]
    If Not TRIBESGOODS.NoMatch Then
       TotalElephants = TRIBESGOODS![ITEM_NUMBER]
       If TotalWagons > 0 Then
          If TotalWagons > TotalElephants Then
-            Walking_Capacity = Walking_Capacity + (TotalElephants * VALIDGOODS![CARRIES])
+            Walking_Capacity = Walking_Capacity + (TotalElephants * Wagons_Carry)
             TotalWagons = TotalWagons - TotalElephants
+            TotalElephants = 0
          Else
             Walking_Capacity = Walking_Capacity + (TotalWagons * Wagons_Carry)
-            Walking_Capacity = Walking_Capacity + ((TotalElephants - TotalWagons) * VALIDGOODS![CARRIES])
+            Walking_Capacity = Walking_Capacity + ((TotalElephants - TotalWagons) * ElephantCapacity)
             ' Elephants must be able to carry all wagons to maintain mounted movement
-            Mounted_Capacity = Mounted_Capacity + ((TotalElephants - TotalWagons) * VALIDGOODS![CARRIES])
+            Mounted_Capacity = Mounted_Capacity + ((TotalElephants - TotalWagons) * ElephantCapacity)
+            TotalElephants = TotalElephants - TotalWagons
+            TotalWagons = 0
          End If
       Else
-         Walking_Capacity = Walking_Capacity + (TotalElephants * VALIDGOODS![CARRIES])
-         Mounted_Capacity = Mounted_Capacity + (TotalElephants * VALIDGOODS![CARRIES])
+         Walking_Capacity = Walking_Capacity + (TotalElephants * ElephantCapacity)
+         'Mounted_Capacity = Mounted_Capacity + (TotalElephants * ElephantCapacity)
       End If
    Else
       TotalElephants = 0
    End If
 Else
+   ElephantCapacity = 0
    MSG1 = "ELEPHANT are not a Valid_Good"
    MSG2 = "Please add it in"
    Response = MsgBox(MSG1 & MSG2, True)
@@ -735,7 +768,6 @@ Else
 End If
 
 If Not VALIDGOODS.NoMatch Then
-   Wagons_Carry = VALIDGOODS![CARRIES]
    If (TotalCattle / 2) >= TotalWagons Then
       Walking_Capacity = Walking_Capacity + (TotalWagons * Wagons_Carry)
       TotalWagons = 0
@@ -751,11 +783,11 @@ End If
 
 TRIBESGOODS.MoveFirst
 TRIBESGOODS.Seek "=", DC_CLANNUMBER, DC_TRIBENUMBER, "ANIMAL", "HORSE"
+VALIDGOODS.MoveFirst
+VALIDGOODS.Seek "=", "HORSE"
 
 If Not TRIBESGOODS.NoMatch Then
    TotalHorses = TRIBESGOODS![ITEM_NUMBER]
-      
-      Walking_Capacity = Walking_Capacity + (TotalHorses * VALIDGOODS![CARRIES])
 Else
    TotalHorses = 0
 End If
@@ -790,20 +822,23 @@ Else
    TotalLHorses = 0
 End If
 
+VALIDGOODS.MoveFirst
+VALIDGOODS.Seek "=", "HORSE"
+
 If Not VALIDGOODS.NoMatch Then
+   HorseCapacity = VALIDGOODS![CARRIES]
    If (TotalHorses / 2) >= TotalWagons Then
       Walking_Capacity = Walking_Capacity + (TotalWagons * Wagons_Carry)
-      TotalHorses = TotalHorses - TotalWagons
-      Walking_Capacity = Walking_Capacity + (TotalHorses * VALIDGOODS![CARRIES])
+      TotalHorses = TotalHorses - TotalWagons * 2
+      Walking_Capacity = Walking_Capacity + (TotalHorses * HorseCapacity)
+      'Mounted_Capacity = Mounted_Capacity + ((TotalHorses * HorseCapacity) / 2)
       TotalWagons = 0
-   ElseIf TotalWagons > 0 Then
-      Walking_Capacity = Walking_Capacity + ((TotalHorses / 2) * VALIDGOODS![CARRIES])
-      TotalHorses = 0
-       TotalWagons = TotalWagons - (TotalHorses / 2)
    Else
-      ' only horses, no wagons
-      Mounted_Capacity = Mounted_Capacity + ((TotalHorses / 2) * VALIDGOODS![CARRIES])
-      TotalHorses = 0
+      Walking_Capacity = Walking_Capacity + ((TotalHorses / 2) * Wagons_Carry)
+      TotalWagons = TotalWagons - (TotalHorses / 2)
+      TotalHorses = TotalHorses - (TotalHorses / 2) * 2
+      Walking_Capacity = Walking_Capacity + (TotalHorses * HorseCapacity)
+      'Mounted_Capacity = Mounted_Capacity + ((TotalHorses * HorseCapacity) / 2)
    End If
 Else
    MSG1 = "HORSE/LIGHT are not a Valid_Good"
@@ -818,13 +853,15 @@ VALIDGOODS.Seek "=", "CAMEL"
 
 If Not VALIDGOODS.NoMatch Then
    If Not TRIBESGOODS.NoMatch Then
+      CamelCapacity = VALIDGOODS![CARRIES]
       TotalCamels = TRIBESGOODS![ITEM_NUMBER]
-      Walking_Capacity = Walking_Capacity + (TotalCamels * VALIDGOODS![CARRIES])
-      Mounted_Capacity = Mounted_Capacity + (TotalCamels * VALIDGOODS![CARRIES])
+      Walking_Capacity = Walking_Capacity + (TotalCamels * CamelCapacity)
+      'Mounted_Capacity = Mounted_Capacity + (TotalCamels * CamelCapacity)
    Else
       TotalCamels = 0
    End If
 Else
+   CamelCapacity = 0
    MSG1 = "CAMEL are not a Valid_Good"
    MSG2 = "Please add it in"
    Response = MsgBox(MSG1 & MSG2, True)
@@ -842,18 +879,19 @@ Else
 End If
 
 If Not VALIDGOODS.NoMatch Then
-   If TotalSaddleBags <= TotalHorses Then
+   If TotalSaddleBags <= (TotalHorses + TotalCamels * 2) Then
       Walking_Capacity = Walking_Capacity + (TotalSaddleBags * VALIDGOODS![CARRIES])
       Mounted_Capacity = Mounted_Capacity + (TotalSaddleBags * VALIDGOODS![CARRIES])
    Else
-      Walking_Capacity = Walking_Capacity + (TotalHorses * VALIDGOODS![CARRIES])
-      Mounted_Capacity = Mounted_Capacity + (TotalHorses * VALIDGOODS![CARRIES])
+      Walking_Capacity = Walking_Capacity + ((TotalHorses + TotalCamels * 2) * VALIDGOODS![CARRIES])
+      Mounted_Capacity = Mounted_Capacity + ((TotalHorses + TotalCamels * 2) * VALIDGOODS![CARRIES])
    End If
 Else
    MSG1 = "SADDLEBAG are not a Valid_Good"
    MSG2 = "Please add it in"
    Response = MsgBox(MSG1 & MSG2, True)
 End If
+
 
 VALIDGOODS.MoveFirst
 VALIDGOODS.Seek "=", "PALAQUIN"
@@ -870,6 +908,49 @@ Else
    MSG2 = "Please add it in"
    Response = MsgBox(MSG1 & MSG2, True)
 End If
+
+
+' Mounted capacity calculation
+'ridden horses    capacity is 100lb of  300lb
+'ridden camels    capacity is 400lb of  500lb
+'ridden elephants capacity is 800lb of 1000lb
+
+If TotalPeople <= TotalHorses Then
+        TotalHorses = TotalHorses - TotalPeople
+        Mounted_Capacity = Mounted_Capacity + (TotalPeople * HorseCapacity) / 3
+        TotalPeople = 0
+Else
+        TotalPeople = TotalPeople - TotalHorses
+        Mounted_Capacity = Mounted_Capacity + (TotalHorses * HorseCapacity) / 3
+        TotalHorses = 0
+End If
+
+If TotalPeople <= TotalCamels Then
+        TotalCamels = TotalCamels - TotalPeople
+        Mounted_Capacity = Mounted_Capacity + (TotalPeople * CamelCapacity) * 0.8
+        TotalPeople = 0
+Else
+        TotalPeople = TotalPeople - TotalCamels
+        Mounted_Capacity = Mounted_Capacity + (TotalCamels * CamelCapacity) * 0.8
+        TotalCamels = 0
+End If
+
+If TotalPeople <= TotalElephants Then
+        TotalElephants = TotalElephants - TotalPeople
+        Mounted_Capacity = Mounted_Capacity + (TotalPeople * ElephantCapacity) * 0.8
+        TotalPeople = 0
+Else
+        TotalPeople = TotalPeople - TotalCamels
+        Mounted_Capacity = Mounted_Capacity + (TotalElephants * ElephantCapacity) * 0.8
+        TotalElephants = 0
+End If
+
+
+Mounted_Capacity = Mounted_Capacity + (TotalHorses * HorseCapacity) _
+       + (TotalCamels * CamelCapacity) + (TotalElephants * ElephantCapacity)
+
+
+
 
 If FLEET = "YES" Then
     ' if fleet then calc people space as cargo space.
@@ -905,16 +986,20 @@ If FLEET = "YES" Then
      
        SHIPSTABLE.MoveNext
     Loop
-       
-    EXCESS_PEOPLE = 0
-    
-    If AVAILABLE_PEOPLE > Required_Crew Then
-       EXCESS_PEOPLE = EXCESS_PEOPLE + (AVAILABLE_PEOPLE - Required_Crew)
+' Take into account empty passenger spaces Alex D 10.09 24
+    If (AVAILABLE_PEOPLE < Max_Crew) Then
+       Mounted_Capacity = Mounted_Capacity + (Max_Crew - AVAILABLE_PEOPLE) * 500
     End If
     
-    If EXCESS_PEOPLE >= 0 Then
-       Mounted_Capacity = Mounted_Capacity + (EXCESS_PEOPLE * 500)
-    End If
+'    EXCESS_PEOPLE = 0
+'
+'    If AVAILABLE_PEOPLE > Required_Crew Then
+'       EXCESS_PEOPLE = EXCESS_PEOPLE + (AVAILABLE_PEOPLE - Required_Crew)
+'   End If
+'
+'    If EXCESS_PEOPLE >= 0 Then
+'       Mounted_Capacity = Mounted_Capacity + (EXCESS_PEOPLE * 500)
+'   End If
 End If
 
 
