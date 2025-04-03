@@ -4,7 +4,7 @@ Option Explicit
 
 '*===============================================================================*'
 '*****                      MAINTENANCE LOG                                  *****'
-'*                          VERSION 3.1.1                                        *'
+'*                          VERSION 3.2.1                                        *'
 '*-------------------------------------------------------------------------------*'
 '**   DATE    *  DESCRIPTION                                                    **'
 '*-------------------------------------------------------------------------------*'
@@ -14,6 +14,7 @@ Option Explicit
 '** 05/03/25  *  Movement points calculation for mounted units fixed (AlexD)    **'
 '** 05/03/25  *  Prevents moving wagons without pulling animals. (AlexD)        **'
 '** 16/03/25  *  Mounted capacity check is currently disabled (AlexD)           **'
+'** 02/04/25  *  Mounted capacity check is enabled (AlexD)           **'
 '*===============================================================================*'
  
 
@@ -2344,8 +2345,8 @@ Else
       End If
    ElseIf NUMBER_OF_CHARIOTS = 0 Then
       If NUMBER_OF_WAGONS = 0 Then
-'         If Number_Of_People_Mounted >= Total_People And TRIBES_CAPACITY >= TRIBES_WEIGHT Then
-         If Number_Of_People_Mounted >= Total_People Then
+         If Number_Of_People_Mounted >= Total_People And TRIBES_CAPACITY >= TRIBES_WEIGHT Then
+'         If Number_Of_People_Mounted >= Total_People Then
             If (NUMBER_OF_LIGHTHORSE >= HORSES_USED) And (NUMBER_OF_LIGHTHORSE > 0) Then
                MOVEMENT_POINTS = 35
             Else
@@ -2355,8 +2356,8 @@ Else
             MOVEMENT_POINTS = 18
          End If
       ElseIf Number_Of_Elephants >= NUMBER_OF_WAGONS Then
-'         If Number_Of_People_Mounted >= Total_People And TRIBES_CAPACITY >= TRIBES_WEIGHT Then
-         If Number_Of_People_Mounted >= Total_People Then
+         If Number_Of_People_Mounted >= Total_People And TRIBES_CAPACITY >= TRIBES_WEIGHT Then
+'         If Number_Of_People_Mounted >= Total_People Then
             MOVEMENT_POINTS = 27
          Else
             MOVEMENT_POINTS = 18
@@ -2366,8 +2367,8 @@ Else
       End If
    ElseIf NUMBER_OF_CHARIOTS > 0 Then
       Number_Of_People_Mounted = Number_Of_People_Mounted + (NUMBER_OF_CHARIOTS * 3)
-'      If Number_Of_People_Mounted >= Total_People And TRIBES_CAPACITY >= TRIBES_WEIGHT Then
-      If Number_Of_People_Mounted >= Total_People Then
+      If Number_Of_People_Mounted >= Total_People And TRIBES_CAPACITY >= TRIBES_WEIGHT Then
+'      If Number_Of_People_Mounted >= Total_People Then
          MOVEMENT_POINTS = 24
       Else
          MOVEMENT_POINTS = 18

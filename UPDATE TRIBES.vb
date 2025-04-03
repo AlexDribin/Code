@@ -5,7 +5,7 @@ Option Explicit
 '*===============================================================================*'
 '*****                      MAINTENANCE LOG                                  *****'
 '*-------------------------------------------------------------------------------*'
-'*                           VERSION 3.1t                                         *'
+'*                           VERSION 3.2.2                                         *'
 '*-------------------------------------------------------------------------------*'
 '**   DATE    *  DESCRIPTION                                                    **'
 '*-------------------------------------------------------------------------------*'
@@ -15,8 +15,11 @@ Option Explicit
 '** 22/01/25  *  Fixed  Animal/wagon capacity calculation (Alex D)              **'
 '** 10/09/24  *  Empty passenges spaces on fleet calculation fixed (AlexD)      **'
 '** 06/03/25  *  Fixed calculation of mounted capacity (AlexD)                  **'
+'** 02/04/25  *  Fixed miscalculation of mounted capacity (AlexD)               **'
 '*===============================================================================*'
 Global ShowUpdateTribesVersion As Long
+Global debugTribe As String
+
 
 Function UPDATE_ACTIVITIES()
 Dim ActivitySeqTable As Recordset
@@ -601,11 +604,6 @@ Dim MSG2 As String
 
 
 
-If (ShowUpdateTribesVersion = 0) Then
-   MSG1 = "UPDATE TRIBES module version is 3.1t "
-   Response = MsgBox(MSG1, True)
-   ShowUpdateTribesVersion = 1
-End If
 
 Set TVWKSPACE = DBEngine.Workspaces(0)
 Set TVDB = TVWKSPACE.OpenDatabase("tvdatapr.accdb")
@@ -642,6 +640,8 @@ If Capacity_Type = "Group" Then
 
    If TRIBESTABLE![Village] = "FLEET" Then
       FLEET = "YES"
+   Else
+      FLEET = "NO"
    End If
    
 Set VALIDGOODS = TVDBGM.OpenRecordset("VALID_GOODS")
@@ -950,6 +950,23 @@ Mounted_Capacity = Mounted_Capacity + (TotalHorses * HorseCapacity) _
        + (TotalCamels * CamelCapacity) + (TotalElephants * ElephantCapacity)
 
 
+' For debug print only
+TRIBESGOODS.MoveFirst
+TRIBESGOODS.Seek "=", DC_CLANNUMBER, DC_TRIBENUMBER, "ANIMAL", "HORSE"
+If Not TRIBESGOODS.NoMatch Then
+   TotalHorses = TRIBESGOODS![ITEM_NUMBER]
+Else
+   TotalHorses = 0
+End If
+
+TRIBESGOODS.MoveFirst
+TRIBESGOODS.Seek "=", DC_CLANNUMBER, DC_TRIBENUMBER, "FINISHED", "WAGON"
+
+If Not TRIBESGOODS.NoMatch Then
+   TotalWagons = TRIBESGOODS![ITEM_NUMBER]
+Else
+   TotalWagons = 0
+End If
 
 
 If FLEET = "YES" Then
@@ -1025,7 +1042,7 @@ End If
       TRIBESTABLE![CAPACITY] = Mounted_Capacity
       TRIBESTABLE![Walking_Capacity] = Walking_Capacity
       TRIBESTABLE.UPDATE
-
+      
 TRIBESTABLE.Close
 
 End If

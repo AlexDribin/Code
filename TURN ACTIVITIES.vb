@@ -4,7 +4,7 @@ Option Explicit
 
 '*===============================================================================*'
 '*****                          MAINTENANCE LOG                              *****'
-'*                              VERSION 3.1.6                                    *'
+'*                              VERSION 3.2.3                                      *'
 '*-------------------------------------------------------------------------------*'
 '**   DATE    *  DESCRIPTION                                                    **'
 '*-------------------------------------------------------------------------------*'
@@ -45,6 +45,9 @@ Option Explicit
 '** 19/03/25  * Disabled "TOWER WOODEN" (AlexD)                                 **'
 '** 20/03/25  * Fixed farming in adjacient hex  (AlexD)                         **'
 '** 20/03/25  * Fixed fish dissapearance (AlexD)                                **'
+'** 20/03/25  * Hirelings Added (AlexD)                                         **'
+'** 28/03/25  * Bread consumption fixed (AlexD)                                 **'
+'** 01/04/25  * Removed requirement that adjacent MH should belong to GT for farming (AlexD)                                 **'
 '*===============================================================================*'
 
 ' MODULE NAME IS TURN ACTIVITIES
@@ -1121,6 +1124,7 @@ EXECUTION_STATUS = "Start"
 Dim Available_Silver As Long
 Dim Required_Silver As Long
 Dim Mercenaries_Unpaid As Long
+Dim Hirelings_Unpaid As Long
 
 Forms![FINAL_ACTIVITIES]![Status] = "Starting Final Activties"
 Forms![FINAL_ACTIVITIES].Repaint
@@ -1190,6 +1194,7 @@ TurnActOutPut = "^BFinal Activities:^B "
 Available_Silver = 0
 Required_Silver = 0
 Mercenaries_Unpaid = 0
+Hirelings_Unpaid = 0
    
    ' Get Tribes Skills
    EXECUTION_STATUS = "Get Skills"
@@ -1366,7 +1371,57 @@ Mercenaries_Unpaid = 0
                Msg = "Silver before Mercenaries are deducted is " & Available_Silver & ", "
                Call Check_Turn_Output("", Msg, "", 0, "NO")
             End If
-            Msg = "Mercenaries cost " & Required_Silver & " silver"
+            Msg = "Mercenaries cost " & Required_Silver & " silver. "
+            Call Check_Turn_Output("", Msg, "", 0, "NO")
+            TRIBESGOODS.MoveFirst
+            TRIBESGOODS.Seek "=", TCLANNUMBER, GOODS_TRIBE, "MINERAL", "SILVER"
+            TRIBESGOODS.Edit
+            TRIBESGOODS![ITEM_NUMBER] = TRIBESGOODS![ITEM_NUMBER] - Required_Silver
+            TRIBESGOODS.UPDATE
+         End If
+      End If
+      
+   
+   'Pay Hirelings
+   Call WRITE_TURN_ACTIVITY(TCLANNUMBER, TTRIBENUMBER, "ACTIVITIES", 2, TurnActOutPut, "No") '?
+   
+   EXECUTION_STATUS = "Paying Hirelings"
+   TRIBESINFO.MoveFirst
+   TRIBESINFO.Seek "=", TCLANNUMBER, TTRIBENUMBER
+   TRIBESINFO.Edit
+   
+      If TRIBESINFO![HIRELINGS] > 0 Then
+         ' if silver >= Hirelings * 10 all good
+         Available_Silver = GET_TRIBES_GOOD_QUANTITY(TCLANNUMBER, GOODS_TRIBE, "SILVER")
+         Required_Silver = TRIBESINFO![HIRELINGS] * 10
+         
+         If Available_Silver = 0 Then
+            Call Check_Turn_Output("", " There is insufficient silver to pay Hirelings this turn.", "", 0, "NO")
+            Msg = GOODS_TRIBE & " IS MISSING " & Required_Silver & " Silver for Hirelings"
+            MsgBox (Msg)
+         ElseIf Required_Silver > Available_Silver Then
+            Call Check_Turn_Output("", " There is insufficient silver to pay Hirelings this turn.", "", 0, "NO")
+            Msg = GOODS_TRIBE & "IS MISSING " & (Required_Silver - Available_Silver) & "Silver to pay Hirelings"
+            MsgBox (Msg)
+            TRIBESGOODS.MoveFirst
+            TRIBESGOODS.Seek "=", TCLANNUMBER, GOODS_TRIBE, "MINERAL", "SILVER"
+            TRIBESGOODS.Edit
+            TRIBESGOODS![ITEM_NUMBER] = TRIBESGOODS![ITEM_NUMBER] - Available_Silver
+            TRIBESGOODS.UPDATE
+            ' Reduce Hirelings by 50% of those unpaid
+            Hirelings_Unpaid = (Required_Silver - Available_Silver) / 10
+            TRIBESINFO.MoveFirst
+            TRIBESINFO.Seek "=", TCLANNUMBER, TTRIBENUMBER
+            TRIBESINFO.Edit
+            TRIBESINFO![HIRELINGS] = TRIBESINFO![HIRELINGS] - (Hirelings_Unpaid / 5)
+            TRIBESINFO.UPDATE
+         Else
+            ' Availble silver matches or exceed silver required
+            If TTRIBENUMBER = "0330" Then
+               Msg = "Silver before Hirelings are deducted is " & Available_Silver & ", "
+               Call Check_Turn_Output("", Msg, "", 0, "NO")
+            End If
+            Msg = "Hirelings cost " & Required_Silver & " silver. "
             Call Check_Turn_Output("", Msg, "", 0, "NO")
             TRIBESGOODS.MoveFirst
             TRIBESGOODS.Seek "=", TCLANNUMBER, GOODS_TRIBE, "MINERAL", "SILVER"
@@ -5151,7 +5206,9 @@ If MINERAL = "YES" Then
   
    VALIDMINERALS.MoveFirst
    VALIDMINERALS.Seek "=", TItem
-     
+   If VALIDMINERALS.NoMatch Then
+        MsgBox "No match found in VALIDMINERALS table for Tribe: " & TTRIBENUMBER & ", Item: " & TItem, vbExclamation, "No Match Error"
+    End If
    ' Calc REST OF FORMULA
    TNEWORE = CLng(TMiners * ((MINING_LEVEL + 2) / 4))
    TNEWORE = CLng(TNEWORE * VALIDMINERALS![MINING_VALUE_1])
@@ -7788,14 +7845,16 @@ End If
 If TMouths > 0 And EXTRA_PROVS > 0 Then
    If EXTRA_PROVS > TMouths Then
       Msg = Msg & TMouths & " milk, "
+      EXTRA_PROVS = EXTRA_PROVS - TMouths
       TRIBESGOODS.Edit
-      TRIBESGOODS![ITEM_NUMBER] = TRIBESGOODS![ITEM_NUMBER] - TMouths
+      TRIBESGOODS![ITEM_NUMBER] = TRIBESGOODS![ITEM_NUMBER] - TMouths * 10
       TRIBESGOODS.UPDATE
       TMouths = 0
 
    Else
       Msg = Msg & EXTRA_PROVS & " milk, "
       TMouths = TMouths - EXTRA_PROVS
+      EXTRA_PROVS = 0
       TRIBESGOODS.Edit
       TRIBESGOODS![ITEM_NUMBER] = 0
       TRIBESGOODS.UPDATE
@@ -7805,39 +7864,41 @@ End If
 TRIBESGOODS.MoveFirst
 TRIBESGOODS.Seek "=", TCLANNUMBER, GOODS_TRIBE, "FINISHED", "BREAD"
 If TRIBESGOODS.NoMatch Then
-   EXTRA_PROVS = 0
+   'Do nothing
 Else
-   EXTRA_PROVS = TRIBESGOODS![ITEM_NUMBER]
+   EXTRA_PROVS = EXTRA_PROVS + TRIBESGOODS![ITEM_NUMBER]
 End If
 
 If TMouths > 0 And EXTRA_PROVS > 0 Then
    If EXTRA_PROVS > TMouths Then
       Msg = Msg & TMouths & " bread, "
+      EXTRA_PROVS = EXTRA_PROVS - TMouths
       TRIBESGOODS.Edit
       TRIBESGOODS![ITEM_NUMBER] = TRIBESGOODS![ITEM_NUMBER] - TMouths
       TRIBESGOODS.UPDATE
-
+      TMouths = 0
    Else
       Msg = Msg & EXTRA_PROVS & " bread, "
       TMouths = TMouths - EXTRA_PROVS
+      EXTRA_PROVS = 0
       TRIBESGOODS.Edit
       TRIBESGOODS![ITEM_NUMBER] = 0
       TRIBESGOODS.UPDATE
-      TMouths = 0
    End If
 End If
 
 TRIBESGOODS.MoveFirst
 TRIBESGOODS.Seek "=", TCLANNUMBER, GOODS_TRIBE, "RAW", "FISH"
 If TRIBESGOODS.NoMatch Then
-   EXTRA_PROVS = 0
+   'Do nothing
 Else
-   EXTRA_PROVS = TRIBESGOODS![ITEM_NUMBER]
+   EXTRA_PROVS = EXTRA_PROVS + TRIBESGOODS![ITEM_NUMBER]
 End If
 
 If TMouths > 0 And EXTRA_PROVS > 0 Then
    If EXTRA_PROVS > TMouths Then
       Msg = Msg & TMouths & " fish, "
+      EXTRA_PROVS = EXTRA_PROVS - TMouths
       TRIBESGOODS.Edit
       TRIBESGOODS![ITEM_NUMBER] = TRIBESGOODS![ITEM_NUMBER] - TMouths
       TRIBESGOODS.UPDATE
@@ -7845,6 +7906,7 @@ If TMouths > 0 And EXTRA_PROVS > 0 Then
    Else
       Msg = Msg & EXTRA_PROVS & " fish, "
       TMouths = TMouths - EXTRA_PROVS
+      EXTRA_PROVS = 0
       TRIBESGOODS.Edit
       TRIBESGOODS![ITEM_NUMBER] = 0
       TRIBESGOODS.UPDATE
@@ -11806,6 +11868,9 @@ If Not VALID_CONST.NoMatch Then
       HEXMAPCONST.Delete
       HEXMAPCONST.MoveFirst
       HEXMAPCONST.Seek "=", CONST_Tribes_Current_Hex, CONSTCLAN, CONSTTRIBE, "CHARHOUSE"
+      If HEXMAPCONST.NoMatch Then
+        MsgBox "No match found in HEXMAPCONST table for Tribe: " & CONSTTRIBE & ", Item: " & "CHARHOUSE", vbExclamation, "No Match Error"
+      End If
       HEXMAPCONST.Edit
       TPOSITION = TBuilding
    
@@ -14626,6 +14691,7 @@ Public Function CheckFarmingEligibility(sHex As String, sClan As String, sTribe 
     '    CheckFarmingEligibility = "FALSE"
     '    Exit Function
     'End If
+
 ' Check location for being village
     HEXMAPCONST.index = "FORTHKEY"
     HEXMAPCONST.MoveFirst
@@ -14634,6 +14700,16 @@ Public Function CheckFarmingEligibility(sHex As String, sClan As String, sTribe 
         CheckFarmingEligibility = "TRUE"
         Exit Function
     End If
+
+' Check for adjacent location MH
+    If Look4AdjacentMH(sHex, sClan) Then
+        CheckFarmingEligibility = "TRUE"
+        Exit Function
+    Else
+        CheckFarmingEligibility = "FALSE" '" Can't plow without nearby village"
+        Exit Function
+    End If
+' code below requires MH to belong to GT now it is disactivated by Exit Function
 ' Look for GT
     TRIBESINFO.MoveFirst
     TRIBESINFO.Seek "=", sClan, sTribe

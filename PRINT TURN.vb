@@ -4,7 +4,7 @@ Option Explicit
 
 '*===============================================================================*'
 '*****                      MAINTENANCE LOG                                  *****'
-'*                              VERSION 3.1.1                                    *'
+'*                              VERSION 3.2.2                                    *'
 '*-------------------------------------------------------------------------------*'
 '**   DATE    *  DESCRIPTION                                                    **'
 '*-------------------------------------------------------------------------------*'
@@ -15,6 +15,7 @@ Option Explicit
 '** 25/01/17  *  Allow for Office 2010 and later                                **'
 '** 08/06/18  *  Added transfer section at end of report                        **'
 '** 05/03/25  *  Current and previous Locations are printed (AlexD)             **'
+'** 02/04/25  *  Weights and Capacities are printed (AlexD)                     **'
 '*===============================================================================*'
  
 ' MODULE NAME = PRINT TURN
@@ -1920,6 +1921,7 @@ End If
 SECTION_NAME = "CAPACITY"
 Call TABS_REQUIRED(SECTION_NAME)
 
+
    ' Weight is generated first to ensure that all weights are output, not just those belonging
    ' to tribes
    ' this will actually be printed after morale
@@ -1937,12 +1939,17 @@ Call TABS_REQUIRED(SECTION_NAME)
    wrdApp.Selection.Font.Bold = False
    wrdApp.Selection.TypeText vbTab & vbTab & vbTab & _
                             Format(Nz(TRIBEINFO![Walking_Capacity], 0), "###,##0") & vbCr
-   wrdApp.Selection.Font.Bold = True
-   ' if mounted capacity is zero then say so
-   wrdApp.Selection.TypeText "Mounted CC: "
-   wrdApp.Selection.Font.Bold = False
-   wrdApp.Selection.TypeText vbTab & vbTab & vbTab & _
+    
+    wrdApp.Selection.Font.Bold = True
+   If TRIBEINFO![Village] <> "FLEET" Then ' Do not call it Mounted for fleet
+     wrdApp.Selection.TypeText "Mounted CC: "
+    Else
+     wrdApp.Selection.TypeText "Fleet CC: "
+    End If
+    wrdApp.Selection.Font.Bold = False
+    wrdApp.Selection.TypeText vbTab & vbTab & vbTab & _
                             Format(Nz(TRIBEINFO![CAPACITY], 0), "###,##0") & vbCr
+
 
 '   ' add in goods tribe
 
